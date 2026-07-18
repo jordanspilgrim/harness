@@ -1,0 +1,87 @@
+# `.claude/project.md` — the per-project descriptor
+
+Every repo that uses the harness commits a `.claude/project.md`. It is the **only** thing that
+differs between projects — the roster, commands, and hooks are shared (installed globally from this
+harness repo). Roles and commands read these fields; where a field is absent or `none`, the step or
+role it drives **does not apply**.
+
+Format: a single fenced ```yaml block. Keep it short. Prose around it is for humans.
+
+## Fields
+
+| Field | Type | Default | Drives |
+|---|---|---|---|
+| `name` | string | dir name | labels, session titles |
+| `stack` | string | (required) | architect/designer/fe-dev/be-dev Inputs; role selection (UI? DB?) |
+| `base_ref` | string | `origin/main` | kickoff worktree/branch base |
+| `worktree_isolation` | bool | `true` | whether the branch-isolation hook + worktrees apply |
+| `check_cmd` | string | — | reviewer/qa/dev "lint+types+format" gate (e.g. `npm run ai-check`, `ruff check && mypy`) |
+| `test_cmd` | string \| `none` | — | qa/dev test gate (e.g. `npm run test:full`, `pytest`) |
+| `definition_of_done` | string | — | what "done" means, verified end-to-end (e.g. `python run_demo.py` runs clean) |
+| `deploy_targets` | list \| `none` | `none` | deployment-manager + `/promote`; `none` ⇒ both drop out |
+| `acceptance` | `web` \| `cli` \| `none` + note | `none` | uat-tester driver (web+browser, run-CLI-assert-stdout, or skip) |
+| `product_context` | string | — | ideator domain framing; reviewer threat lens |
+| `sources_of_truth` | list + map \| `none` | `none` | documenter gate; `none` ⇒ documenter is advisory-only |
+| `roster_profile` | `solo` \| `small` \| `full` | `small` | which roles kickoff stands up |
+| `roles` | list | (from profile) | optional explicit override of the role set |
+
+### `roster_profile` → default role set
+- **solo** — `builder`, `reviewer` (+ `evaluator` if the plan is gated). Sequential; minimal DLB. One-person POC.
+- **small** — `builder`(s), `reviewer`, `qa`. Light team.
+- **full** — `ideator`, `designer`, `architect`, `pjm`, `fe-dev`, `be-dev`, `reviewer`, `qa`, `uat`, `deployer`, `bugfixer`, `documenter`. The BaselineOS fleet.
+
+`builder` is the generic dev role. On a UI/DB stack it specializes into `fe-dev`/`be-dev`; on a
+plain library/CLI it stays `builder`. Roles whose descriptor inputs are absent are dropped:
+no UI stack ⇒ no `designer`/`fe-dev`; `deploy_targets: none` ⇒ no `deployer`/`/promote`;
+`acceptance: none` ⇒ no `uat`; `sources_of_truth: none` ⇒ `documenter` advisory-only.
+
+## Starter template (copy into `.claude/project.md`, fill in)
+
+```yaml
+name: my-project
+stack: ""                      # e.g. "Python 3.11 + OpenAI SDK" or "Next.js 16 / React / Drizzle"
+base_ref: origin/main
+worktree_isolation: true       # false for a simple single-branch repo
+check_cmd: ""                  # lint+format+types gate, e.g. "ruff check && mypy"
+test_cmd: none                 # e.g. "pytest" — or none
+definition_of_done: ""         # how done is verified end-to-end
+deploy_targets: none           # or a list of envs
+acceptance: none               # web | cli | none  (+ a short how-to note)
+product_context: ""            # one line: what this is / who it's for
+sources_of_truth: none         # or a doc set + which paths gate which doc
+roster_profile: small          # solo | small | full
+```
+
+## Example — BaselineOS (reproduces today's behavior)
+
+```yaml
+name: baselineos
+stack: "Next.js 16 App Router / React 19 / TypeScript / Tailwind v4 + shadcn / Plate.js; Drizzle ORM + better-sqlite3 (WAL); NextAuth v5 (JWT, multi-tenant via activeOrgId); AWS S3 + Secrets Manager; Anthropic/OpenAI/Gemini via src/lib/model-config.ts; Python doc-service"
+base_ref: origin/main
+worktree_isolation: true
+check_cmd: npm run ai-check
+test_cmd: npm run test:full
+definition_of_done: "ai-check + test:full green → code review → QA → merge → UAT on testdot"
+deploy_targets: [Test, Demo, App]   # test.baselineos.ai / demo.baselineos.ai / app.baselineos.ai — SSM + ECR ladder
+acceptance: "web — QA-Clone browser on testdot (test.baselineos.ai); never demo/app"
+product_context: "AI legal-workflow SaaS for attorneys; multi-tenant (Organization→Team→User)"
+sources_of_truth: "ARCHITECTURE.md (infra/db/auth/model-config), DESIGN.md (tokens/globals.css), FEATURES.md (routes/flags/skills)"
+roster_profile: full
+```
+
+## Example — Keel-like standalone POC
+
+```yaml
+name: keel
+stack: "Python 3.11 + OpenAI SDK (+ scikit-learn)"
+base_ref: origin/main
+worktree_isolation: false
+check_cmd: "ruff check && mypy ."
+test_cmd: pytest
+definition_of_done: "python run_demo.py runs clean on a laptop with only OPENAI_API_KEY"
+deploy_targets: none
+acceptance: "cli — run python run_demo.py and assert expected stdout / artifacts"
+product_context: "<one-line POC problem statement from the plan>"
+sources_of_truth: none          # README.md only; documenter advisory
+roster_profile: solo
+```
