@@ -22,6 +22,9 @@ hooks/      dlb-autoregister.sh (SessionStart role→DLB bootstrap + session tit
             (worktree isolation — wired per-project only when worktree_isolation: true)
 schema/     project.md — the descriptor spec + starter template + worked examples
 install.sh  symlink agents/ commands/ hooks/ into ~/.claude (idempotent)
+bootstrap.sh            refresh this checkout (git pull --ff-only) then re-run install.sh
+templates/project-bootstrap.sh   self-contained clone-or-pull + install; /harness-init drops a
+            copy of this into each project as scripts/harness-bootstrap.sh
 ```
 
 ## Install
@@ -32,6 +35,18 @@ git clone <this-repo> ~/ClaudeCode/harness   # or wherever
 ```
 Then add the `dlb-autoregister` SessionStart hook to `~/.claude/settings.json` (the installer prints
 the exact block). DLB itself: `uv tool install dlb-mcp` and configure the `dlb` MCP server.
+
+To refresh an existing checkout to latest and reinstall in one step: `~/ClaudeCode/harness/bootstrap.sh`.
+
+### Per-project bootstrap (teammates / fresh clones)
+
+`/harness-init` drops `scripts/harness-bootstrap.sh` into each project (a copy of
+[`templates/project-bootstrap.sh`](templates/project-bootstrap.sh)). It's self-contained: it clones
+or fast-forwards the harness into `~/ClaudeCode/harness`, then runs `install.sh`. So anyone who clones
+a harness-using repo gets the fleet with one command — `npm run bootstrap` (Node), `make bootstrap`,
+or `./scripts/harness-bootstrap.sh` — with no manual `~/.claude` wiring. It's **not** a package.json
+`postinstall`: that runs in CI, which clones the private harness repo without credentials and would
+fail every build. Override the harness location/URL with `HARNESS_DIR` / `HARNESS_URL`.
 
 ## Use it in a project
 
