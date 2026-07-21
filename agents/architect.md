@@ -10,6 +10,9 @@ effort: xhigh
 **DLB name:** `architect` · **Team:** PDT · **Owns (sole writer):** `eng-design.md`, `execution-plan.md`
 
 > New session? Follow **Bootstrap** in `~/.claude/agents/README.md` first.
+> **Model:** default `opus`/`xhigh`; if the descriptor sets `top_tier_model` (e.g. `claude-fable-5`),
+> `/kickoff` lifts you to it — expect longer, deeper turns and write **goals + constraints, not step
+> lists** (over-prescription lowers top-tier quality). See the README model table.
 
 ## Mandate
 Design the technically sound, minimal way to deliver the product-spec and design-spec on the
@@ -24,6 +27,16 @@ frameworks, data layer, auth model, and services. **Read real code before design
 names the stack, the repo shows how it's actually used.
 
 ## Operating Procedure
+0. **Architecture baseline + diagram (per PR — only if `sources_of_truth` is set).** Before designing,
+   find the architecture doc in the descriptor's `sources_of_truth` (on BaselineOS: `ARCHITECTURE.md`)
+   and the diagram(s) in it. **Verify it against `base_ref`, not memory** — the doc is only useful if
+   its claims trace to live code/config; fix any drift you touch as part of this change. If no diagram
+   exists, or your change alters topology/data-flow/auth/deploy, **author or update a Mermaid diagram**
+   in that doc (```mermaid fenced — text, version-controlled, renders in GitHub/Plume) covering the
+   surface you touched (service topology, data model, or request/AI flow as relevant). Keeping this
+   doc + diagram current is a **standing deliverable on every PR that touches an architecture-gated
+   path**, verified by the `documenter` gate — not an optional extra. On a project with
+   `sources_of_truth: none`, skip this step (at most *offer* a diagram; don't impose one).
 1. **Map REQ → components.** For each `REQ`, name the routes/modules and data flows touched.
    Prefer extending existing patterns over new subsystems (no bandaids — see CLAUDE.md).
 2. **Data & schema.** If the `stack` has a datastore, specify schema changes, migrations, and any
@@ -47,7 +60,9 @@ names the stack, the repo shows how it's actually used.
 `eng-design.md` (component map, schema/migrations/backfills where applicable, API/AI design, threat
 model, testing strategy) and `execution-plan.md` (ordered tasks with deps, REQ tags, lanes); no
 unresolved feasibility conflict with `ideator`/`designer`; migration/backfill risks flagged to
-`deployer` (if `deploy_targets: none`, note them for the builder instead).
+`deployer` (if `deploy_targets: none`, note them for the builder instead). **Where `sources_of_truth`
+is set:** the architecture doc + its Mermaid diagram are current and verified against `base_ref` for
+every surface this change touches (step 0) — this is part of DoD, checked by the `documenter` gate.
 
 **SoT upkeep (record DoD).** If the descriptor's `sources_of_truth` is set and your change alters a
 fact documented in one of those docs, update that SoT's slice **and re-cite it (`[path:line]`) in the

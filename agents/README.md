@@ -140,19 +140,32 @@ false-green / missed-bug failures from the 2026-07-17 review).
 
 | Role | `/model` | `/effort` | Why |
 |---|---|---|---|
-| `reviewer`, `architect` | opus | **xhigh** | The correctness/security/design gate — reason *harder* than default; catch the subtle bug. |
-| `designer`, `ideator` | opus | high | Visual/UX judgment (designer); foundational spec + acceptance authoring (ideator). |
-| `bugfixer` | sonnet | high | Root-cause reasoning under a live incident. |
+| `architect` | opus → **`top_tier_model`** | **xhigh** | Design/feasibility gate. Lifts to the descriptor's `top_tier_model` (e.g. `claude-fable-5`) when set — long-horizon design is where Fable-tier earns its keep. |
+| `ideator` | opus → **`top_tier_model`** | high | Foundational spec + acceptance authoring — the hardest specs benefit most from the top tier. |
+| `bugfixer` | sonnet → **`top_tier_model`** | high | Root-cause reasoning under a live incident; long-horizon agentic strength suits it. |
+| `reviewer` | opus | **xhigh** | The correctness/security/design gate. **Stays opus even when `top_tier_model` is set** — it owns the security pass and Fable-tier classifiers false-refuse on security-adjacent work. |
+| `designer` | opus | high | Visual/UX judgment — not a coding/long-horizon task, so no Fable lift. |
 | `fe-dev`, `be-dev` | sonnet | high | Real implementation + edge cases. |
 | `deployer` | sonnet | high | Prod is high-stakes even when procedural — don't cut corners. |
 | `pjm` | sonnet | **medium** | Coordination/routing, not deep reasoning — the biggest turn-volume role, so effort matters most here. |
 | `qa`, `uat`, `documenter` | sonnet | **medium** | Structured verification / stewardship against a checklist. |
 | watch / poll / scribe (ad-hoc) | haiku/Codex | low | Near-zero judgment — or move to Codex/script entirely (see "Mechanical lane"). |
 
+> **`top_tier_model` (opt-in ceiling).** When the descriptor sets it (e.g. `claude-fable-5`), `/kickoff`
+> emits `/model claude-fable-5` for `architect`/`ideator`/`bugfixer` instead of their default. It is **opt-in
+> per project** because Fable-tier has real costs: always-on thinking → **minutes-long turns** (fine for deep
+> design/root-cause, wasteful for mechanical roles — which is why only these three lift), it **requires ≥30-day
+> data retention** (unavailable under ZDR), and over-prescriptive prompts *reduce* its quality (the lifted cards
+> state goals, not step lists). `reviewer` never lifts (security-pass refusal risk). The **non-security
+> adversarial-verify fan-out** in review workflows may run on `top_tier_model` at low effort — that's a
+> workflow stage, not this standing card. No `top_tier_model` ⇒ every role uses the default column.
+
 > **Terminal is the real lever** — the fleet runs as terminals, so `/model` + `/effort` on adopt is what
 > actually bites. `model:`/`effort:` in a card's frontmatter apply when a role is *spawned as a subagent*
 > (frontmatter `effort:` support is Claude-Code-version-dependent; the terminal `/effort` always works).
-> `CLAUDE_CODE_EFFORT_LEVEL` in the env enforces a floor across restarts if you want one.
+> Card frontmatter stays at the **default** tier (the safe floor); the `top_tier_model` lift is applied at the
+> terminal by `/kickoff` reading the descriptor — so a subagent spawn in a project that hasn't opted in never
+> silently lands on Fable. `CLAUDE_CODE_EFFORT_LEVEL` in the env enforces a floor across restarts if you want one.
 > `pjm` (sonnet/medium) was the single largest token sink in the review; bump it up only if coordination slips.
 
 ### Engine parity — Codex equivalents (GPT-5.6 family)
@@ -177,6 +190,10 @@ Invoke with `codex -m <model> -c model_reasoning_effort=<level>`.
 > **Default Codex model = `gpt-5.6-terra`**, not `sol`. Reserve `sol` for the deep roles above (invoke
 > explicitly with `-m gpt-5.6-sol`) — same reason you don't default every terminal to Opus. Pin the
 > mechanical lane to `luna`.
+>
+> **No Codex equivalent for the `top_tier_model` lift.** `gpt-5.6-sol` is the Codex ceiling — a role that
+> lifts to `claude-fable-5` on the Claude fleet maps to `sol / xhigh` on Codex (already the parity for
+> `architect`/`bugfixer`). Don't try to over-map Fable onto a Codex model; Sol is as high as Codex goes.
 
 ## Mechanical lane — offload to Codex (flat-rate)
 

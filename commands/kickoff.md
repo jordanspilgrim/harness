@@ -44,7 +44,10 @@ descriptor; see `~/.claude/agents/_templates/` or the harness `schema/project.md
    - **Base ref** = descriptor `base_ref` (default `origin/main`; verify it exists).
    - **Branch model** = descriptor `worktree_isolation`: `true` ⇒ worktrees; `false` ⇒ simple
      branches or a single sequential tree (typical for a `solo` POC).
-   - **Task DAG**, **owner-input items**, and **model+effort tier per role** (README table).
+   - **Task DAG**, **owner-input items**, and **model+effort tier per role** (README table). If the
+     descriptor sets **`top_tier_model`**, emit `/model <top_tier_model>` for `architect`, `ideator`,
+     and `bugfixer` (not `reviewer` — it stays `opus`); every other role keeps its default. No
+     `top_tier_model` ⇒ the README default column for all.
 
 4. **Build the manifest** `.claude/plans/<slug>/manifest.md` (template `~/.claude/agents/_templates/manifest.md`):
    roster table (role → DLB name → model/effort → workspace → first task), the task DAG + gate order,

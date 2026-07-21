@@ -24,6 +24,20 @@ Format: a single fenced ```yaml block. Keep it short. Prose around it is for hum
 | `sources_of_truth` | list + map \| `none` | `none` | documenter gate; `none` ⇒ documenter is advisory-only |
 | `roster_profile` | `solo` \| `small` \| `full` | `small` | which roles kickoff stands up |
 | `roles` | list | (from profile) | optional explicit override of the role set |
+| `top_tier_model` | model id \| `none` | `none` | opt-in top tier for the high-judgment roles (`architect`, `ideator`, `bugfixer`) — see below |
+
+### `top_tier_model` — opt-in ceiling for high-judgment roles
+
+When set (e.g. `claude-fable-5`), `/kickoff` lifts `architect`, `ideator`, and `bugfixer` to that
+model instead of their default tier (see the README model table). Leave `none` and every role uses
+its default. **`code-reviewer` is deliberately excluded** — it owns the security pass, and Fable-tier
+safety classifiers can false-refuse on security-adjacent work (Trivy/SSRF/IDOR/tenancy), so the
+review gate stays on its default (`opus`). Two guards before opting in:
+- **Data retention.** `claude-fable-5` requires ≥30-day data retention and is unavailable under ZDR —
+  under ZDR the lifted roles will error. Confirm the plan/org retention first.
+- **De-prescribe.** Over-prescriptive prompts (`MUST`/`CRITICAL`, step-by-step scaffolding) *reduce*
+  Fable-tier quality. The lifted cards are written to state goals + constraints, not enumerate steps.
+- Verify the model is actually selectable on your plan (`/model`) before relying on it.
 
 ### `roster_profile` → default role set
 - **solo** — `builder`, `reviewer` (+ `evaluator` if the plan is gated). Sequential; minimal DLB. One-person POC.
@@ -67,6 +81,7 @@ acceptance: "web — QA-Clone browser on testdot (test.baselineos.ai); never dem
 product_context: "AI legal-workflow SaaS for attorneys; multi-tenant (Organization→Team→User)"
 sources_of_truth: "ARCHITECTURE.md (infra/db/auth/model-config), DESIGN.md (tokens/globals.css), FEATURES.md (routes/flags/skills)"
 roster_profile: full
+top_tier_model: claude-fable-5   # lifts architect/ideator/bugfixer; reviewer stays opus (security pass)
 ```
 
 ## Example — Keel-like standalone POC

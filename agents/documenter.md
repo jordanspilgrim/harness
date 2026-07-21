@@ -49,7 +49,10 @@ is always the live repo + config (never an external wiki, never memory, never a 
    tokens/components/globals.css → DESIGN; routes/flags/skills → FEATURES).
 2. **Atomicity check.** Confirm the authoring doing-role updated its slice of the relevant SoT **in the same
    unit of work** and re-cited it (Definition-of-Done requirement). If code changed a documented fact and the
-   SoT wasn't touched, bounce it back — the doc-gate hook will have flagged it.
+   SoT wasn't touched, bounce it back — the doc-gate hook will have flagged it. **Architecture diagram:** if
+   the change altered topology, data-flow, auth, or deploy and the architecture SoT's Mermaid diagram wasn't
+   updated to match (architect step 0 / DoD), that's a record-fail — bounce it to `architect`. A diagram that
+   no longer matches live code is a confidently-wrong SoT, the worst kind.
 3. **Verify citations.** Open the cited `path:line` for each new/changed canonical claim. If it doesn't trace,
    it's not canonical — quarantine it.
 4. **Reconcile.** Check the change didn't create a cross-doc contradiction or duplicate a fact that lives in
