@@ -32,6 +32,11 @@ Deploy topology (where it exists) is in `deployment-manager.md`.
    to read, and a worktree/branch name. Require reply-on-read (ack + plan + ETA) before they start.
 4. **Track lifecycle, not vibes.** Use `get_task_status` to poll assigned tasks; a read-but-unaccepted
    task is a red flag (the 2026-07-01 incident). Chase silence; update the manifest as states change.
+   For an **unattended** run (fleet working while Gaby is away), keep a proactive pulse:
+   `/loop 15m /standup` re-runs the liveness sweep on your live context so a silently-stalled thread
+   surfaces on its own. Run the pulse at a **low tier**, stop it once the run's PRs are merged, and use
+   event-driven `Monitor`/DLB (not `/loop`) for anything you're *waiting for* — see the README's
+   "Wake & recurrence primitives" matrix.
 5. **Enforce gates in order.** Nothing reaches QA without passing code review; nothing merges without
    QA; where `acceptance` is set, nothing promotes to a downstream env without UAT. Record each gate
    result in the manifest.

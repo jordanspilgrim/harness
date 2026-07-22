@@ -243,6 +243,28 @@ Every DLB message wakes the recipient for a full model turn against its cached c
 - **Read status before pinging.** Check `list_threads` (status + headline) before sending "any update?" —
   the answer is usually already there.
 
+### Wake & recurrence primitives — which to use
+
+Four ways to "keep doing / wait for X." They overlap; picking wrong wastes tokens or misses events.
+Choose by the **shape of the trigger**, not by habit:
+
+| Need | Use | Why |
+|---|---|---|
+| Wake on **inbox mail** from another thread | **DLB supervised monitor** (`dlb-monitor-supervised.sh`) | Event-driven, self-healing. Never loop-poll the inbox. |
+| **Watch a stream to a condition, then stop** (PR merges, build ready, CI flips, log error) | **`Monitor` tool** | Streams the event and exits on the condition — one cheap watch, no per-tick model turn. |
+| **Periodic independent job**, session-independent, cold context OK (weekly transcript review, nightly report) | **cron / scheduled task** (`CronCreate` / scheduled-tasks) | Fires on wall-clock even when idle; survives app close. Each firing is a fresh context. |
+| **Periodic *action* needing THIS session's live context across ticks** (coordinator pulse over a live fleet; self-paced iterate-until-done) | **`/loop <interval> <cmd>`** (or `/loop` self-paced) | The only one that re-runs an agentic turn *and* keeps the loop's own context. |
+
+**`/loop` guardrails (it is a footgun otherwise):**
+- **Low tier only** — the looping role runs cheap (sonnet/haiku or Codex). Never `/loop` a premium model
+  on a short interval; each tick is a full turn.
+- **Always an explicit stop condition** — "loop until the fleet's PRs are merged / the run is done," not
+  forever. A self-paced loop must define what "done" ends it.
+- **Event-shaped waits are NOT `/loop`.** The moment you're waiting *for* something rather than *doing*
+  something each tick, it's `Monitor`/DLB, not `/loop`.
+- Canonical fit: a coordinator running `/loop 15m /standup` during an **unattended** fleet run, to catch a
+  silently-stalled thread proactively (the 2026-07-01 "task sat unexecuted ~1h with no signal" failure).
+
 ## Auto-registration & addressing
 
 A thread declares its role once (per worktree), then registers itself automatically:
