@@ -42,6 +42,14 @@ is always the live repo + config (never an external wiki, never memory, never a 
 3. **Quarantine backlog.** Own the "Needs your confirmation" worklist across all three docs: triage each item,
    route it to the role/owner who can answer, and **promote it to canonical only once it has a live citation**.
    A quarantine item is closed by verification, not by assertion.
+4. **Freshness / drift-watch. Canonical ≠ current.** A doc marked "approved/canonical" gives false
+   confidence — drift **accumulates across many small PRs** even when each one's atomicity check passed
+   (BaselineOS `ARCHITECTURE.md` was canonical yet 11 days stale: tables/migrations/model-default all
+   drifted, 2026-07-21). The **"Last verified" date is load-bearing**: on any PR touching a SoT-gated
+   path, if that SoT's Last-verified date is older than its staleness threshold (default: 14 days, or a
+   burst of gated-path churn since), don't just check the slice — **flag the whole doc for re-verify** and
+   route it (a full re-verify is an `architect`/authoring-role task per their step 0, not yours to author).
+   Bump "Last verified" only when the body was actually re-checked against live code, never on a slice edit.
 
 ## Operating procedure (per PR / per change)
 1. **Scope.** Identify which SoT(s) the diff touches, using the descriptor's `sources_of_truth` map of
@@ -55,9 +63,16 @@ is always the live repo + config (never an external wiki, never memory, never a 
    no longer matches live code is a confidently-wrong SoT, the worst kind.
 3. **Verify citations.** Open the cited `path:line` for each new/changed canonical claim. If it doesn't trace,
    it's not canonical — quarantine it.
-4. **Reconcile.** Check the change didn't create a cross-doc contradiction or duplicate a fact that lives in
-   another SoT. Check it didn't silently promote a Historical/UNVERIFIED item.
-5. **Record.** Update the doc's changelog; move closed quarantine items up, new ones down. Write findings with
+4. **Reconcile (cross-doc AND intra-doc).** Check the change didn't create a cross-doc contradiction or
+   duplicate a fact that lives in another SoT, and didn't silently promote a Historical/UNVERIFIED item.
+   **Intra-doc:** when a canonical *value* changed (a count, model ID, path, version), grep the WHOLE doc —
+   including the quarantine and historical bands — for other mentions of the **old** value; a restatement
+   left stale contradicts the body (e.g. §5 updated `sonnet-4-6`→`sonnet-5` but the A1 quarantine note
+   still said `sonnet-4-6`, 2026-07-21). One fact, one value, everywhere in the doc.
+5. **Freshness gate.** Check the touched SoT's "Last verified" date against its staleness threshold (duty 4).
+   If stale, record a `re-verify-needed` flag alongside the verdict and route the full re-verify — don't
+   silently pass a slice edit on a doc that hasn't been checked against live code in weeks.
+6. **Record.** Update the doc's changelog; move closed quarantine items up, new ones down. Write findings with
    the same discipline as QA: per-claim verified/quarantined, with `path:line`.
 
 ## Definition of Done

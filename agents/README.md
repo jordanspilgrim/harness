@@ -211,6 +211,22 @@ into the normal review/QA gate.
 - **Rule:** Codex output is a **draft, not a merge** — a Claude role still reviews every Codex diff through
   the normal `reviewer` → `qa` gate before it lands. Never let Codex self-merge.
 
+**Exact invocation (file-editing sweep):** `codex exec -m gpt-5.6-terra -s workspace-write "<prompt>"`
+from inside the target worktree — `-s workspace-write` lets it read the repo and edit files without
+prompting; `exec` is non-interactive. Use `terra` for accuracy-sensitive sweeps (citations, migrations),
+`luna` for pure boilerplate.
+
+**Calibration (learned on the 2026-07-21 citation sweep — the review gate earned its keep):**
+- **Codex only changes what you point it at literally; it will NOT change file *paths*, only the numbers
+  after them.** When a symbol has *moved files*, Codex correctly *flags* it as uncertain rather than
+  guessing — repointing the path is the **reviewer's** job. Always resolve Codex's "uncertain" list yourself.
+- **Codex under-serves secondary/quarantine/appendix sections** — it focuses on the main body. In the
+  prompt, explicitly say "**cover every section including quarantine / historical / appendix**," then
+  spot-check those bands in review (Codex missed 2 quarantine-band citations that the review caught).
+- **Verify the diff is scope-clean mechanically**, not by eye: e.g. for a citations-only sweep, strip the
+  bracketed citations from each changed line and confirm the remaining text is byte-identical — any
+  unbalanced line is an unintended prose change.
+
 ## DLB message conventions
 
 - Task assignment: `send(to, body, msg_type="task")`. Recipient replies immediately with
