@@ -256,16 +256,37 @@ def tokenize(s):
 data = sys.stdin.read()
 tokens = tokenize(data)
 if tokens is None:
-    # Parse failure: an unbalanced quote in a heredoc body, a commit message, a
-    # sed expression, or a contraction. Do NOT blanket-block here (printing 1 is
-    # what false-blocked benign commands that merely contained an apostrophe,
-    # 2026-07-22). Fall back to a command-boundary regex: block ONLY if a real
-    # git checkout|switch invocation is actually present; otherwise allow. A
-    # genuine switch still contains the literal boundary, so the hard block is
-    # preserved; a heredoc with no git-checkout string passes.
+    # shlex failed on an unbalanced quote — almost always an apostrophe inside a
+    # heredoc body. Strip heredoc BODIES and retry so the quote-aware, position-
+    # aware walk below can still run. This resolves the residual where a heredoc
+    # that merely documents a git checkout got false-blocked (2026-07-22).
     # NOTE: this whole python -c block is single-quoted at the shell, so it must
-    # contain NO apostrophes and NO single-quoted strings (that is the very bug
-    # being fixed) — the regex below is double-quoted for that reason.
+    # contain NO apostrophes / single-quoted strings (that is the very bug being
+    # fixed) — regex strings are double-quoted and quote chars come from chr().
+    import re
+    def strip_heredocs(s):
+        q = "[" + chr(34) + chr(39) + "]?"   # optional quote char around the delimiter word
+        start = re.compile("<<-?[ \\t]*" + q + "([A-Za-z_][A-Za-z0-9_]*)" + q)
+        out = []; pos = 0
+        while True:
+            m = start.search(s, pos)
+            if not m:
+                out.append(s[pos:]); break
+            nl = s.find("\n", m.end())
+            if nl == -1:                       # no body on a following line
+                out.append(s[pos:]); break
+            close = re.compile("\\n[ \\t]*" + re.escape(m.group(1)) + "[ \\t]*(\\n|$)")
+            cm = close.search(s, nl)
+            if not cm:                         # unterminated — drop the rest
+                out.append(s[pos:nl + 1]); break
+            # keep the operator line (may hold a real command after `;`), drop the
+            # body + the closing delimiter line, continue past it.
+            out.append(s[pos:nl + 1]); pos = cm.end()
+        return "".join(out)
+    tokens = tokenize(strip_heredocs(data))
+if tokens is None:
+    # Still unparseable (malformed quoting OUTSIDE a heredoc — rare). Last-resort
+    # command-boundary regex: block ONLY if a real git checkout|switch is present.
     import re
     print(1 if re.search(r"(^|[\s;&|`(])git\s+(checkout|switch)([\s]|$)", data) else 0)
     sys.exit(0)
@@ -392,9 +413,13 @@ fi
 repo_root=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
 marker="$repo_root/.claude/.branch-switch-allow"
 if [ -n "$repo_root" ] && [ -f "$marker" ]; then
-  # Match either an exact target line or a `*` wildcard line. Consume the
-  # marker on use so a stale approval can't authorize future switches.
-  if grep -qxE "(\\*|$(printf '%s' "$target" | sed -e 's/[][\\.^$*/]/\\&/g'))" "$marker" 2>/dev/null; then
+  # Match either a `*` wildcard line or an exact target line. Use FIXED-STRING
+  # matching (grep -F), not a regex: the old regex `(\*|<target>)` became the
+  # empty alternation `(\*|)` when target was empty (detached HEAD) and ugrep
+  # errors on that, silently blocking. -F also avoids escaping the target.
+  # Consume the marker on use so a stale approval cannot authorize future switches.
+  if grep -qxF -- "*" "$marker" 2>/dev/null \
+     || { [ -n "$target" ] && grep -qxF -- "$target" "$marker" 2>/dev/null; }; then
     rm -f "$marker"
     exit 0
   fi
