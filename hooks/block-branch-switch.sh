@@ -253,11 +253,22 @@ def tokenize(s):
             out.append(raw[i]); i += 1
     return out
 
-tokens = tokenize(sys.stdin.read())
+data = sys.stdin.read()
+tokens = tokenize(data)
 if tokens is None:
-    # Parse failure (unclosed quote, etc.) — err safe; let the rest of the
-    # hook run so it can apply its own checks.
-    print(1); sys.exit(0)
+    # Parse failure: an unbalanced quote in a heredoc body, a commit message, a
+    # sed expression, or a contraction. Do NOT blanket-block here (printing 1 is
+    # what false-blocked benign commands that merely contained an apostrophe,
+    # 2026-07-22). Fall back to a command-boundary regex: block ONLY if a real
+    # git checkout|switch invocation is actually present; otherwise allow. A
+    # genuine switch still contains the literal boundary, so the hard block is
+    # preserved; a heredoc with no git-checkout string passes.
+    # NOTE: this whole python -c block is single-quoted at the shell, so it must
+    # contain NO apostrophes and NO single-quoted strings (that is the very bug
+    # being fixed) — the regex below is double-quoted for that reason.
+    import re
+    print(1 if re.search(r"(^|[\s;&|`(])git\s+(checkout|switch)([\s]|$)", data) else 0)
+    sys.exit(0)
 
 SEP = {";", "&&", "||", "&", "|"}
 at_subcmd_start = True
