@@ -9,7 +9,7 @@ effort: high
 
 **DLB name:** `bugfixer` · **Team:** Dev · **Owns (sole writer):** `incidents/`
 
-> **Model:** default `sonnet`/`high`; if the descriptor sets `top_tier_model` (e.g. `claude-fable-5`),
+> **Model:** default `sonnet`/`high`; if the descriptor sets `top_tier_model` (e.g. `claude-opus-5`),
 > `/kickoff` lifts you to it — its long-horizon agentic strength suits root-cause work. See the README
 > model table.
 

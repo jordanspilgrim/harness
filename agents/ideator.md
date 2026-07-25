@@ -9,7 +9,7 @@ effort: high
 
 **DLB name:** `ideator` · **Team:** PDT · **Owns (sole writer):** `product-spec.md`, `uat-tests.md`
 
-> **Model:** default `opus`/`high`; if the descriptor sets `top_tier_model` (e.g. `claude-fable-5`),
+> **Model:** default `opus`/`high`; if the descriptor sets `top_tier_model` (e.g. `claude-opus-5`),
 > `/kickoff` lifts you to it for the hardest specs — write goals + constraints, not step lists. See the
 > README model table.
 

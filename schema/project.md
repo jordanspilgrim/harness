@@ -28,16 +28,23 @@ Format: a single fenced ```yaml block. Keep it short. Prose around it is for hum
 
 ### `top_tier_model` — opt-in ceiling for high-judgment roles
 
-When set (e.g. `claude-fable-5`), `/kickoff` lifts `architect`, `ideator`, and `bugfixer` to that
-model instead of their default tier (see the README model table). Leave `none` and every role uses
-its default. **`code-reviewer` is deliberately excluded** — it owns the security pass, and Fable-tier
-safety classifiers can false-refuse on security-adjacent work (Trivy/SSRF/IDOR/tenancy), so the
-review gate stays on its default (`opus`). Two guards before opting in:
-- **Data retention.** `claude-fable-5` requires ≥30-day data retention and is unavailable under ZDR —
-  under ZDR the lifted roles will error. Confirm the plan/org retention first.
-- **De-prescribe.** Over-prescriptive prompts (`MUST`/`CRITICAL`, step-by-step scaffolding) *reduce*
-  Fable-tier quality. The lifted cards are written to state goals + constraints, not enumerate steps.
-- Verify the model is actually selectable on your plan (`/model`) before relying on it.
+When set, `/kickoff` lifts `architect`, `ideator`, and `bugfixer` to that model instead of their
+default tier (see the README model table). Leave `none` and every role uses its default. Two targets:
+
+- **`claude-opus-5`** — the recommended top tier since Opus 5 shipped (2026-07-24): near-Fable
+  capability at Opus pricing ($5/$25, half Fable), no data-retention requirement, normal turn lengths,
+  standard prompting. Most valuable for `bugfixer` (default `sonnet`). No special guards.
+- **`claude-fable-5`** — the absolute ceiling, only when a project genuinely needs it. Guards before
+  opting in: it **requires ≥30-day data retention** and is unavailable under ZDR (the lifted roles
+  error under ZDR — confirm plan/org retention first), and **over-prescriptive prompts** (`MUST`/
+  `CRITICAL`, step-by-step scaffolding) *reduce* Fable-tier quality (the lifted cards state goals +
+  constraints, not step lists). Its always-on thinking means minutes-long turns.
+
+**`code-reviewer` is deliberately excluded** from the lift — it owns the security pass, and top-tier
+safety classifiers can false-refuse on security-adjacent work (Trivy/SSRF/IDOR/tenancy), so the review
+gate stays on its default (`opus`). Note that `opus` itself now resolves to Claude Opus 5, which also
+carries elevated cyber safeguards — its card documents a `claude-opus-4-8` fallback for the rare
+security-sub-pass refusal. Verify the chosen model is actually selectable on your plan (`/model`).
 
 ### `roster_profile` → default role set
 - **solo** — `builder`, `reviewer` (+ `evaluator` if the plan is gated). Sequential; minimal DLB. One-person POC.
@@ -81,7 +88,7 @@ acceptance: "web — QA-Clone browser on testdot (test.baselineos.ai); never dem
 product_context: "AI legal-workflow SaaS for attorneys; multi-tenant (Organization→Team→User)"
 sources_of_truth: "ARCHITECTURE.md (infra/db/auth/model-config), DESIGN.md (tokens/globals.css), FEATURES.md (routes/flags/skills)"
 roster_profile: full
-top_tier_model: claude-fable-5   # lifts architect/ideator/bugfixer; reviewer stays opus (security pass)
+top_tier_model: claude-opus-5    # lifts architect/ideator/bugfixer (near-Fable at half cost); reviewer stays opus (security pass)
 ```
 
 ## Example — Keel-like standalone POC

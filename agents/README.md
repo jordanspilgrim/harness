@@ -140,10 +140,10 @@ false-green / missed-bug failures from the 2026-07-17 review).
 
 | Role | `/model` | `/effort` | Why |
 |---|---|---|---|
-| `architect` | opus → **`top_tier_model`** | **xhigh** | Design/feasibility gate. Lifts to the descriptor's `top_tier_model` (e.g. `claude-fable-5`) when set — long-horizon design is where Fable-tier earns its keep. |
+| `architect` | opus → **`top_tier_model`** | **xhigh** | Design/feasibility gate. Lifts to the descriptor's `top_tier_model` (typically `claude-opus-5` — near-Fable capability at Opus pricing; `claude-fable-5` only for the absolute ceiling) when set. |
 | `ideator` | opus → **`top_tier_model`** | high | Foundational spec + acceptance authoring — the hardest specs benefit most from the top tier. |
-| `bugfixer` | sonnet → **`top_tier_model`** | high | Root-cause reasoning under a live incident; long-horizon agentic strength suits it. |
-| `reviewer` | opus | **xhigh** | The correctness/security/design gate. **Stays opus even when `top_tier_model` is set** — it owns the security pass and Fable-tier classifiers false-refuse on security-adjacent work. |
+| `bugfixer` | sonnet → **`top_tier_model`** | high | Root-cause reasoning under a live incident; long-horizon agentic strength suits it (biggest lift, since its default is `sonnet`). |
+| `reviewer` | opus | **xhigh** | The correctness/security/design gate. **Never lifts to `top_tier_model`** — it owns the security pass, where top-tier classifiers false-refuse. Its `opus` baseline now resolves to Claude Opus 5 (better bug recall); if the security sub-pass refuses, re-run that sub-pass on `claude-opus-4-8` (see the card). |
 | `designer` | opus | high | Visual/UX judgment — not a coding/long-horizon task, so no Fable lift. |
 | `fe-dev`, `be-dev` | sonnet | high | Real implementation + edge cases. |
 | `deployer` | sonnet | high | Prod is high-stakes even when procedural — don't cut corners. |
@@ -151,12 +151,18 @@ false-green / missed-bug failures from the 2026-07-17 review).
 | `qa`, `uat`, `documenter` | sonnet | **medium** | Structured verification / stewardship against a checklist. |
 | watch / poll / scribe (ad-hoc) | haiku/Codex | low | Near-zero judgment — or move to Codex/script entirely (see "Mechanical lane"). |
 
-> **`top_tier_model` (opt-in ceiling).** When the descriptor sets it (e.g. `claude-fable-5`), `/kickoff`
-> emits `/model claude-fable-5` for `architect`/`ideator`/`bugfixer` instead of their default. It is **opt-in
-> per project** because Fable-tier has real costs: always-on thinking → **minutes-long turns** (fine for deep
-> design/root-cause, wasteful for mechanical roles — which is why only these three lift), it **requires ≥30-day
-> data retention** (unavailable under ZDR), and over-prescriptive prompts *reduce* its quality (the lifted cards
-> state goals, not step lists). `reviewer` never lifts (security-pass refusal risk). The **non-security
+> **`top_tier_model` (opt-in ceiling).** When the descriptor sets it, `/kickoff` emits `/model <top_tier_model>`
+> for `architect`/`ideator`/`bugfixer` instead of their default. Two sensible targets, different trade-offs:
+> - **`claude-opus-5`** — the recommended top tier since Opus 5 shipped (2026-07-24). Near-Fable capability at
+>   Opus pricing ($5/$25, half Fable), **no data-retention requirement**, normal turn lengths, standard prompting.
+>   A straightforward lift — most valuable for `bugfixer`, whose default is `sonnet`. (Once Claude Code's plain
+>   `opus` alias resolves to Opus 5, the lift for `architect`/`ideator` becomes a no-op you can drop; `bugfixer`
+>   still benefits.)
+> - **`claude-fable-5`** — the absolute ceiling, for a project that genuinely needs it. Real costs: always-on
+>   thinking → **minutes-long turns**, it **requires ≥30-day data retention** (unavailable under ZDR), and
+>   over-prescriptive prompts *reduce* its quality (the lifted cards state goals, not step lists).
+>
+> `reviewer` never lifts (security-pass refusal risk on any top-tier classifier). The **non-security
 > adversarial-verify fan-out** in review workflows may run on `top_tier_model` at low effort — that's a
 > workflow stage, not this standing card. No `top_tier_model` ⇒ every role uses the default column.
 
@@ -192,8 +198,9 @@ Invoke with `codex -m <model> -c model_reasoning_effort=<level>`.
 > mechanical lane to `luna`.
 >
 > **No Codex equivalent for the `top_tier_model` lift.** `gpt-5.6-sol` is the Codex ceiling — a role that
-> lifts to `claude-fable-5` on the Claude fleet maps to `sol / xhigh` on Codex (already the parity for
-> `architect`/`bugfixer`). Don't try to over-map Fable onto a Codex model; Sol is as high as Codex goes.
+> lifts to `claude-opus-5` or `claude-fable-5` on the Claude fleet maps to `sol / xhigh` on Codex (already the
+> parity for `architect`/`bugfixer`). Don't try to over-map the Claude top tier onto a Codex model; Sol is as
+> high as Codex goes.
 
 ## Mechanical lane — offload to Codex (flat-rate)
 

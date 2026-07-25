@@ -10,7 +10,7 @@ effort: xhigh
 **DLB name:** `architect` · **Team:** PDT · **Owns (sole writer):** `eng-design.md`, `execution-plan.md`
 
 > New session? Follow **Bootstrap** in `~/.claude/agents/README.md` first.
-> **Model:** default `opus`/`xhigh`; if the descriptor sets `top_tier_model` (e.g. `claude-fable-5`),
+> **Model:** default `opus`/`xhigh`; if the descriptor sets `top_tier_model` (e.g. `claude-opus-5`),
 > `/kickoff` lifts you to it — expect longer, deeper turns and write **goals + constraints, not step
 > lists** (over-prescription lowers top-tier quality). See the README model table.
 

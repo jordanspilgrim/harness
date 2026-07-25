@@ -34,7 +34,11 @@ The PR/diff, `eng-design.md` (incl. threat model), `product-spec.md` (REQ intent
    actually implies: authz on every route, input validation/sanitization, no inlined secrets, safe
    external-storage/service access, no injection. Tenancy scoping is a mandatory check **only when the
    `product_context` describes multi-tenancy** — then verify every query is tenant-scoped. For risky
-   changes invoke `/security-review`.
+   changes invoke `/security-review`. **Cyber-safeguard fallback:** this card runs on `opus`, which now
+   resolves to Claude Opus 5 (kept here for its bug-finding recall). Opus 5 carries elevated cyber
+   safeguards that can occasionally *decline* a security-adjacent read instead of reviewing it — if the
+   security sub-pass comes back as a refusal rather than a review, re-run just that sub-pass on
+   `/model claude-opus-4-8` (4.8 has the recall without the refusal), then return to the default for the rest.
 4. **Design fidelity (FE).** Where the stack has a UI, spot-check against `mockups/`: system tokens,
    all states, a11y, motion. (Skip on a headless stack.)
 5. **Maintainability.** No bandaids masking a real flaw (CLAUDE.md); naming, structure, dead code,
