@@ -1,6 +1,6 @@
 ---
-description: Stand up a right-sized agent fleet for execution from a plan + handoff doc — reads the project descriptor, picks the roster profile, builds the manifest + task DAG, and emits ready-to-paste launch blocks per role terminal.
-argument-hint: <plan-path> <handoff-doc-path>
+description: Stand up a right-sized agent fleet for execution — from a plan + handoff doc, or (with no args) bootstrap a minimal plan+handoff from a one-line goal. Reads the project descriptor, picks the roster profile, builds the manifest + task DAG, and emits ready-to-paste launch blocks per role terminal.
+argument-hint: "[plan-path] [handoff-doc-path]  (both optional — omit for minimal kickoff from a one-line goal)"
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, TaskCreate, TaskUpdate
 ---
 
@@ -12,8 +12,34 @@ launch blocks** for each terminal the user opens (prep + emit — you do NOT spa
 harness is project-agnostic: **everything project-specific comes from `.claude/project.md`** (the
 descriptor; see `~/.claude/agents/_templates/` or the harness `schema/project.md`).
 
-**Inputs:** Plan `$1`, Handoff `$2`. If either is missing/unreadable, stop and ask (offer the newest
-`.claude/plans/HANDOFF-*.md` as a suggestion). Do not guess.
+**Inputs:** Plan `$1`, Handoff `$2` — **both optional**.
+- **Both present & readable** → run the full **Procedure** below.
+- **One or both missing/unreadable** → do NOT hard-stop. First offer the newest
+  `.claude/plans/HANDOFF-*.md` (and its paired plan) if one plausibly fits. If none does — or the user
+  wants to start fresh — run the **Minimal kickoff** path below to bootstrap a lightweight plan+handoff
+  from a one-line goal, then continue into the Procedure with those as `$1`/`$2`. Either way, **never
+  guess scope silently** — confirm the plan (given or drafted) with the user before creating anything.
+
+## Minimal kickoff (no plan/handoff)
+
+For a quick or small effort that doesn't have a written plan yet. The goal is to reach a *confirmed*
+plan+handoff cheaply — not to skip planning. Keep this lane light: default to a `solo`/`small` roster.
+
+1. **Get the goal.** If the user gave a one-line goal with the command, use it; else ask for one
+   sentence: what should exist when this is done, and is it **this repo** or a **new project**? (A new
+   project routes to `/harness-init` first — Procedure step 2.)
+2. **Draft a thin plan + handoff (ideator-lite).** Write `.claude/plans/<slug>/plan.md` (goal, in-scope,
+   out-of-scope, a concrete **acceptance/DoD** measured against the descriptor's `definition_of_done`,
+   and 2-5 first tasks) and `.claude/plans/<slug>/HANDOFF.md` (proposed `roster_profile` — `solo` unless
+   the goal clearly needs more — base ref, gates from the descriptor, and any owner decisions). Scope to
+   what the goal states; don't invent adjacent work. Use `~/.claude/agents/_templates/` if present.
+3. **Confirm before building.** Show the drafted plan + the proposed roster/gates and get an explicit
+   OK (or edits). This replaces the given plan the full flow would have read — the confirmation gate is
+   non-negotiable even in the minimal lane.
+4. **Continue** into the Procedure from step 2, treating the drafted `plan.md`/`HANDOFF.md` as `$1`/`$2`.
+
+If a descriptor doesn't exist yet, `/harness-init` (Procedure step 2) still runs first — minimal kickoff
+drafts the *plan*, not the *descriptor*.
 
 ## Procedure
 
