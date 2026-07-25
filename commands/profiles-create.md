@@ -1,0 +1,1 @@
+Create a new Claude Code profile by cloning ~/.claude. If the user provided a name, run: `claude-profiles create <name>` (add `-d "desc"` only if they gave a description). Otherwise just ask for a name. Description is optional. After creation, ask: "Do you want to switch to this profile now? (y/n)" — if yes, run `claude-profiles use <name>`.

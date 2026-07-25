@@ -1,0 +1,1 @@
+Switch to a different Claude Code profile. Changes settings, hooks, MCP servers, and plugins. If the user provided a name, run: `claude-profiles use <name>`. Otherwise run `claude-profiles list` first, then ask which to switch to. After switching, tell the user to restart Claude Code.

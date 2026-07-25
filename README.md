@@ -16,7 +16,10 @@ agents/     role cards (ideator, architect, designer, program-manager, frontend-
             traceability, bootstrap, model+effort tiers, Codex engine-parity, DLB conventions) +
             _templates/ (manifest + artifact skeletons)
 commands/   kickoff.md (descriptor-driven fleet setup) · standup.md (DLB liveness) ·
-            promote.md (deploy-gated) · harness-init.md (scaffold a new project's descriptor)
+            promote.md (deploy-gated) · harness-init.md (scaffold a new project's descriptor) ·
+            personal/dev commands folded in 2026-07-24 so the whole ~/.claude command set is
+            versioned: build-skill.md · qa-test.md · deploy.md (legacy ship) ·
+            draft-privacy-policy.md · profiles*.md (claude-profiles CLI wrappers)
 hooks/      dlb-autoregister.sh (SessionStart role→DLB bootstrap + session titling) ·
             dlb-monitor-supervised.sh (self-healing wake source) · block-branch-switch.sh
             (worktree isolation — wired per-project only when worktree_isolation: true)

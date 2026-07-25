@@ -1,0 +1,1 @@
+Delete a Claude Code profile. Cannot delete the active or default profile. If the user provided a name, run: `claude-profiles delete <name> --force`. Otherwise run `claude-profiles list` first, then ask which to delete.

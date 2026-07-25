@@ -1,0 +1,1 @@
+Manage Claude Code profiles — switch between different configurations (settings, hooks, MCP servers, plugins). Immediately run `claude-profiles list` and show the output. Then briefly mention: /profiles-create, /profiles-use, /profiles-configure are available.

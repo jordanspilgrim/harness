@@ -1,0 +1,1 @@
+Configure plugins in the active Claude Code profile. IMPORTANT: Only use the `claude-profiles` CLI — never use `npx tsx` or other alternatives. First run `claude-profiles current` to show the active profile. Then read ~/.claude/settings.json to show enabledPlugins. Ask the user what to change. To toggle a plugin, run: `claude-profiles toggle plugin <name> on|off`
