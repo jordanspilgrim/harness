@@ -17,7 +17,7 @@ Format: a single fenced ```yaml block. Keep it short. Prose around it is for hum
 | `worktree_isolation` | bool | `true` | whether the branch-isolation hook + worktrees apply |
 | `check_cmd` | string | — | reviewer/qa/dev "lint+types+format" gate (e.g. `npm run ai-check`, `ruff check && mypy`) |
 | `test_cmd` | string \| `none` | — | qa/dev test gate (e.g. `npm run test:full`, `pytest`) |
-| `definition_of_done` | string | — | what "done" means, verified end-to-end (e.g. `python run_demo.py` runs clean) |
+| `definition_of_done` | string | — | what "done" means, verified end-to-end (e.g. `pytest green + the CLI exits 0`). **Never name a billable or destructive command here** — every role runs this repeatedly |
 | `deploy_targets` | list \| `none` | `none` | deployment-manager + `/promote`; `none` ⇒ both drop out |
 | `acceptance` | `web` \| `cli` \| `none` + note | `none` | uat-tester driver (web+browser, run-CLI-assert-stdout, or skip) |
 | `product_context` | string | — | ideator domain framing; reviewer threat lens |
@@ -91,19 +91,30 @@ roster_profile: full
 top_tier_model: claude-opus-5    # lifts architect/ideator/bugfixer (near-Fable at half cost); reviewer stays opus (security pass)
 ```
 
-## Example — Keel-like standalone POC
+## Example — standalone single-person POC
 
 ```yaml
-name: keel
+name: my-poc
 stack: "Python 3.11 + OpenAI SDK (+ scikit-learn)"
 base_ref: origin/main
 worktree_isolation: false
-check_cmd: "ruff check && mypy ."
+check_cmd: "ruff check && mypy ."   # ONLY if both are actually installed — verify, don't assume
 test_cmd: pytest
-definition_of_done: "python run_demo.py runs clean on a laptop with only OPENAI_API_KEY"
+definition_of_done: "pytest green + <a cheap, repeatable end-to-end check>"
 deploy_targets: none
-acceptance: "cli — run python run_demo.py and assert expected stdout / artifacts"
+acceptance: "cli — assert expected stdout / artifacts from a NON-billable entrypoint"
 product_context: "<one-line POC problem statement from the plan>"
 sources_of_truth: none          # README.md only; documenter advisory
 roster_profile: solo
 ```
+
+> **Never put a billable or destructive command in `definition_of_done` or `acceptance`.** These
+> two fields are read by every role as "the thing to run to prove you are finished", so a demo
+> entrypoint that calls a paid API, overwrites committed artifacts, or mutates a shared database
+> will be run repeatedly, by several threads, unattended. If the only true end-to-end check is
+> expensive, say so in the field text and name the cheap proxy the fleet should actually run.
+>
+> Real example: an earlier version of this template used a POC's `run_demo.py` for both fields.
+> That script spends real money per run and overwrites the committed artifacts backing a
+> pre-registered published metric. The project's own `.claude/project.md` now overrides it with
+> `NEVER run run_demo.py`.

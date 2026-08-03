@@ -28,7 +28,8 @@ pieces. Do NOT copy role cards or commands into the repo.
    no repeated modals): `name`, `stack`, `base_ref` (default `origin/main`), `worktree_isolation`
    (default `false` for a simple single-branch project, `true` for a multi-worktree fleet),
    `check_cmd`, `test_cmd` (or `none`), `definition_of_done` (the real "it works" check — e.g.
-   `python run_demo.py` runs clean), `deploy_targets` (default `none`), `acceptance` (`web`/`cli`/
+   `pytest green + the CLI exits 0`; **never a billable or destructive command**, since every role
+   runs it repeatedly and unattended), `deploy_targets` (default `none`), `acceptance` (`web`/`cli`/
    `none`), `product_context` (one line), `sources_of_truth` (default `none`), `roster_profile`
    (`solo`/`small`/`full` — default `solo` for a one-person POC).
 
