@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install the agent harness into ~/.claude by symlinking agents/, commands/, hooks/.
+# Install the agent harness into ~/.claude by symlinking agents/, commands/, hooks/, skills/.
 #
 # Claude Code merges global ~/.claude/{agents,commands,hooks} into EVERY project, so after this
 # runs, every repo — existing or brand-new — inherits the roster, the /kickoff · /standup ·
@@ -26,10 +26,11 @@ link_dir "$REPO/agents"            "$DEST/agents"            "*.md"
 link_dir "$REPO/agents/_templates" "$DEST/agents/_templates" "*"
 link_dir "$REPO/commands"          "$DEST/commands"          "*.md"
 link_dir "$REPO/hooks"             "$DEST/hooks"             "*.sh"
+link_dir "$REPO/skills"            "$DEST/skills"            "*"     # each skill is a dir with SKILL.md
 
 cat <<'EOF'
 
-Done. Roster + commands + hooks now resolve globally in every repo.
+Done. Roster + commands + hooks + skills now resolve globally in every repo.
 
 One-time wiring (only if not already present) — add dlb-autoregister to the SessionStart array in
 ~/.claude/settings.json so role threads auto-register/title on spawn in ANY project:

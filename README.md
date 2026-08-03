@@ -32,14 +32,22 @@ Hooks (`hooks/`):
 - `dlb-monitor-supervised.sh`: a self-healing wake source
 - `block-branch-switch.sh`: worktree isolation, wired per project when you turn it on
 
+Skills (`skills/`), the methods a fleet applies rather than the roles that apply them:
+
+- `blind-review-pass`: run a review as a measurement, not an opinion. Pre-registered exit bar and
+  prediction, the prior findings physically removed from the search space, refute-by-default
+  verification where nulls count against the bar, mirror-image attacks on every gate, and
+  recall/precision/net-new reported as numbers. Written after a 17-pass loop hit its floor.
+
 ## Layout
 
 ```
 agents/       role cards + the shared protocol (agents/README.md) + _templates/
 commands/     kickoff, standup, promote, harness-init, and everyday commands
 hooks/        DLB autoregister, supervised monitor, branch-switch guard
+skills/       methods the fleet applies (blind-review-pass), one dir per skill
 schema/       project.md: the descriptor spec, a starter template, worked examples
-install.sh    symlink agents/ commands/ hooks/ into ~/.claude (idempotent)
+install.sh    symlink agents/ commands/ hooks/ skills/ into ~/.claude (idempotent)
 bootstrap.sh  refresh this checkout (git pull --ff-only), then reinstall
 templates/    project-bootstrap.sh: the self-contained per-project installer
 ```
