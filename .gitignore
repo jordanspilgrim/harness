@@ -1,3 +1,11 @@
 .claude/.dlb-role
 .claude/worktrees/
 .DS_Store
+
+# secrets (added during public-prep)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
