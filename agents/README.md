@@ -117,10 +117,18 @@ in `_templates/manifest.md`.
 
 ## Bootstrap — run this when you adopt a role
 
+0. **Check you are in the right repo.** Run `pwd` and compare it to the `project_root` in your
+   launch block or `.claude/project.md`. If they differ, stop and tell the user both paths — a
+   misrouted thread reads the wrong marker, CLAUDE.md, and descriptor, and looks completely normal
+   while doing it (2026-08-12: eleven threads, one hour, nothing noticed). `dlb-autoregister.sh`
+   checks this too, but it cannot catch every case, so do it yourself before anything else.
 1. `register(name="<your dlb name>", working_on="<feature>")` on DLB → store `session_token`.
-2. **Set your model AND effort tier** for this terminal (table below) — e.g. `/model claude-sonnet-5`
-   then `/effort medium` for a coordination role. Don't leave a whole fleet on Opus/high by default;
-   don't run a security review on `/effort medium` either. Both dials are per-role.
+2. **Set your model AND effort tier** (table below) — e.g. `/model claude-sonnet-5` then
+   `/effort medium` for a coordination role. Don't leave a whole fleet on Opus/high by default;
+   don't run a security review on `/effort medium` either. Both dials are per-role. In a terminal
+   these are slash commands. **In the desktop app they may not open** — if a tier was stated in
+   prose in your launch block, set it in the app's model selector and confirm it took, rather than
+   assuming the slash command applied.
 3. Launch the wake source (self-healing wrapper — respawns the monitor if it exits):
    `Monitor({command: "~/.claude/hooks/dlb-monitor-supervised.sh --name <your dlb name>", persistent: true})`.
 4. **Load relevant memory.** Read `memory/MEMORY.md` and open every topic file whose Auto-Load trigger
@@ -166,12 +174,15 @@ false-green / missed-bug failures from the 2026-07-17 review).
 > adversarial-verify fan-out** in review workflows may run on `top_tier_model` at low effort — that's a
 > workflow stage, not this standing card. No `top_tier_model` ⇒ every role uses the default column.
 
-> **Terminal is the real lever** — the fleet runs as terminals, so `/model` + `/effort` on adopt is what
+> **Per-session is the real lever** — the fleet runs as sessions, so `/model` + `/effort` on adopt is what
 > actually bites. `model:`/`effort:` in a card's frontmatter apply when a role is *spawned as a subagent*
 > (frontmatter `effort:` support is Claude-Code-version-dependent; the terminal `/effort` always works).
-> Card frontmatter stays at the **default** tier (the safe floor); the `top_tier_model` lift is applied at the
-> terminal by `/kickoff` reading the descriptor — so a subagent spawn in a project that hasn't opted in never
+> Card frontmatter stays at the **default** tier (the safe floor); the `top_tier_model` lift is applied per
+> session by `/kickoff` reading the descriptor — so a subagent spawn in a project that hasn't opted in never
 > silently lands on Fable. `CLAUDE_CODE_EFFORT_LEVEL` in the env enforces a floor across restarts if you want one.
+> **Surface caveat:** the terminal `/effort` always works; in the desktop app these are dialogs that may not
+> open, so a launch block must state the tier in prose as well and the adopting thread must confirm it took.
+> A fleet silently left on the default tier is a quiet, expensive failure — check, don't assume.
 > `pjm` (sonnet/medium) was the single largest token sink in the review; bump it up only if coordination slips.
 
 ### Engine parity — Codex equivalents (GPT-5.6 family)

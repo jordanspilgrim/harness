@@ -17,6 +17,15 @@ pieces. Do NOT copy role cards or commands into the repo.
    If it isn't a git repo yet, note that `git init` is needed (offer to run it). If a
    `.claude/project.md` already exists, show it and ask whether to edit rather than overwrite.
 
+   **If the target is a NEW sibling repo** (a different stack, its own repository — the case
+   `/kickoff` step 2 routes here), then this session is rooted in the *old* repo and will stay that
+   way: a session's working directory is fixed when the session is created. Scaffolding the new repo
+   from here is fine, since it is all file writes. **Continuing into `/kickoff` from here is not.**
+   Create the directory and `git init` it, then request access to that path if the surface sandboxes
+   directories (desktop: the directory-request tool; a terminal already has it), write the descriptor
+   with `project_root` set to the new absolute path, and **stop**. The last thing you do is hand the
+   user a correctly-rooted next step, not a task. See step 8.
+
 2. **Infer the stack**, then confirm with the user. Look for signals: `package.json` (Node/Next),
    `pyproject.toml`/`requirements.txt` (Python), `Cargo.toml` (Rust), `go.mod` (Go), a `run_demo.py`
    / `main.py` entrypoint, presence of a UI (`app/`, `src/components`, Tailwind) vs a plain
@@ -25,7 +34,10 @@ pieces. Do NOT copy role cards or commands into the repo.
    an `ai-check` script / the repo's test script).
 
 3. **Gather the descriptor fields** (ask only what you can't infer; keep it to one batched round —
-   no repeated modals): `name`, `stack`, `base_ref` (default `origin/main`), `worktree_isolation`
+   no repeated modals): `name`, `project_root` (the repo's absolute path — infer it, don't ask;
+   this is what the SessionStart root assertion checks and what `/kickoff` generates launch
+   contracts from, so set it on any repo that will ever host a fleet), `stack`, `base_ref`
+   (default `origin/main`), `worktree_isolation`
    (default `false` for a simple single-branch project, `true` for a multi-worktree fleet),
    `check_cmd`, `test_cmd` (or `none`), `definition_of_done` (the real "it works" check — e.g.
    `pytest green + the CLI exits 0`; **never a billable or destructive command**, since every role
@@ -83,9 +95,23 @@ pieces. Do NOT copy role cards or commands into the repo.
    `scripts/harness-bootstrap.sh` you just wrote) for the roster/commands to resolve — check
    `~/.claude/commands/kickoff.md` exists; if not, tell the user to run the installer/bootstrap.
 
+   **If you scaffolded a new sibling repo, the next step runs somewhere else, and saying so is the
+   whole point of this step.** Do not run `/kickoff` from this session — it would stand the fleet up
+   against the repo this session is rooted in, which is the misrouting `/kickoff`'s Rooting section
+   exists to prevent. Instead tell the user, in one line each: the new repo's absolute path; that
+   `/kickoff` must run in a session rooted *there*; and how to get one on their surface (desktop:
+   open a session at that folder, or have the launcher spawn it with that `cwd`; terminal:
+   `cd <path> && claude`). Verify the handoff is possible before promising it — if the new path is
+   outside what this surface can open, say that plainly rather than leaving the user to discover it.
+
 ## Guardrails
 - Per-project only. Do NOT copy the roster/commands/hooks into the repo — they resolve globally.
 - Never clobber an existing `.claude/settings.json` / `.gitignore` — merge.
 - Don't wire the branch-isolation hook unless `worktree_isolation: true` (a simple repo must keep
   normal branch switching).
 - Confirm stack + gates with the user before writing — a wrong `check_cmd`/`test_cmd` misleads every role.
+- **Never continue into `/kickoff` for a repo this session is not rooted in.** Scaffolding a sibling
+  repo from here is fine; running its fleet from here is the misrouting failure. Hand off instead.
+- Write `project_root` as an absolute path, and never write gates (`check_cmd`, `test_cmd`) as
+  absolute paths to compensate for a badly-rooted session. Gates are relative to the repo; absolute
+  gates are a symptom of misrouting and make the committed descriptor useless on any other machine.

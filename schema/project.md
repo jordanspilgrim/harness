@@ -12,6 +12,7 @@ Format: a single fenced ```yaml block. Keep it short. Prose around it is for hum
 | Field | Type | Default | Drives |
 |---|---|---|---|
 | `name` | string | dir name | labels, session titles |
+| `project_root` | abs path \| `none` | `none` | **root assertion** — the hook halts a session rooted in the wrong repo; `/kickoff` builds the cross-repo preamble from it |
 | `stack` | string | (required) | architect/designer/fe-dev/be-dev Inputs; role selection (UI? DB?) |
 | `base_ref` | string | `origin/main` | kickoff worktree/branch base |
 | `worktree_isolation` | bool | `true` | whether the branch-isolation hook + worktrees apply |
@@ -25,6 +26,32 @@ Format: a single fenced ```yaml block. Keep it short. Prose around it is for hum
 | `roster_profile` | `solo` \| `small` \| `full` | `small` | which roles kickoff stands up |
 | `roles` | list | (from profile) | optional explicit override of the role set |
 | `top_tier_model` | model id \| `none` | `none` | opt-in top tier for the high-judgment roles (`architect`, `ideator`, `bugfixer`) — see below |
+
+### `project_root` — the absolute path this repo lives at
+
+Set this on the machine that runs the fleet. `dlb-autoregister.sh` compares it against the session's
+actual working directory on every SessionStart, and `/kickoff` uses it to build launch prompts.
+
+**Why it exists.** A session rooted in the wrong repo is the most expensive failure this harness has
+produced. On 2026-08-12 eleven SAT threads ran for an hour rooted in `baselineos-poc` instead of
+`sat-math-app`. Every one read the wrong `.claude/.dlb-role` (so the autoregister hook silently
+no-opped for all eleven), the wrong `CLAUDE.md`, and the wrong descriptor. Nothing reported anything,
+because the misrouted case is exactly the case where the role never resolves — a thread that should
+be a fleet member is indistinguishable from an ordinary session. The workaround (absolute paths
+everywhere) then leaked into that project's committed `check_cmd`/`test_cmd`, making the descriptor
+non-portable. This field is what makes that state detectable in the first ten seconds instead of the
+sixtieth minute.
+
+**Two tiers, so a second clone is not an error.** A different *basename* means a different repo, which
+halts the thread. A matching basename at a different path just means another clone or machine, which
+is a one-line note. That keeps the committed descriptor usable by a teammate whose checkout lives
+elsewhere: they get the note, not the banner.
+
+Leave it `none` on a repo that is only ever opened directly and never hosts a fleet. Set
+`DLB_ALLOW_ROOT_MISMATCH=1` for a session that is deliberately cross-repo, or `DLB_EXPECT_ROOT=<path>`
+to assert a root from a launcher without a descriptor. Regression test:
+`bash ~/.claude/hooks/dlb-autoregister.test.sh` (21 cases, each "fires" case paired with the benign
+neighbour it must stay silent on).
 
 ### `top_tier_model` — opt-in ceiling for high-judgment roles
 
@@ -60,6 +87,7 @@ no UI stack ⇒ no `designer`/`fe-dev`; `deploy_targets: none` ⇒ no `deployer`
 
 ```yaml
 name: my-project
+project_root: none             # abs path this repo lives at — set it if a fleet ever runs here
 stack: ""                      # e.g. "Python 3.11 + OpenAI SDK" or "Next.js 16 / React / Drizzle"
 base_ref: origin/main
 worktree_isolation: true       # false for a simple single-branch repo

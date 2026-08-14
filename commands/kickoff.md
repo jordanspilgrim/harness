@@ -1,16 +1,20 @@
 ---
-description: Stand up a right-sized agent fleet for execution — from a plan + handoff doc, or (with no args) bootstrap a minimal plan+handoff from a one-line goal. Reads the project descriptor, picks the roster profile, builds the manifest + task DAG, and emits ready-to-paste launch blocks per role terminal.
+description: Stand up a right-sized agent fleet for execution — from a plan + handoff doc, or (with no args) bootstrap a minimal plan+handoff from a one-line goal. Reads the project descriptor, picks the roster profile, builds the manifest + task DAG, and launches one correctly-rooted session per role (desktop app or terminal).
 argument-hint: "[plan-path] [handoff-doc-path]  (both optional — omit for minimal kickoff from a one-line goal)"
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, TaskCreate, TaskUpdate
 ---
 
 # /kickoff — descriptor-driven fleet setup from a plan + handoff
 
-You are the **kickoff coordinator**. Set the harness up so a fleet of role terminals can execute,
-sized and shaped to THIS project. You do the setup one session can do, then **emit ready-to-paste
-launch blocks** for each terminal the user opens (prep + emit — you do NOT spawn the agents). The
-harness is project-agnostic: **everything project-specific comes from `.claude/project.md`** (the
-descriptor; see `~/.claude/agents/_templates/` or the harness `schema/project.md`).
+You are the **kickoff coordinator**. Set the harness up so a fleet of role threads can execute,
+sized and shaped to THIS project. You do the setup one session can do, then **hand off one launch per
+role** (prep + hand off — you do NOT drive the agents). The harness is project-agnostic:
+**everything project-specific comes from `.claude/project.md`** (the descriptor; see
+`~/.claude/agents/_templates/` or the harness `schema/project.md`).
+
+**Two surfaces, one rule.** This runs in the desktop app and in a terminal. They differ in *how* a
+thread gets its working directory, and that difference is the single highest-cost failure mode this
+command has (see "Rooting" below). Everything else is identical.
 
 **Inputs:** Plan `$1`, Handoff `$2` — **both optional**.
 - **Both present & readable** → run the full **Procedure** below.
@@ -67,6 +71,11 @@ drafts the *plan*, not the *descriptor*.
    - **Gates** from the descriptor: `check_cmd`, `test_cmd` (skip if `none`), `definition_of_done`
      — these replace any hardcoded `npm run ai-check`/`test:full`. Every role's DoD is measured
      against the descriptor's DoD.
+   - **Root** = descriptor `project_root`. If it is `none` or absent, resolve the repo's absolute
+     path, confirm it with the user, and **write it into the descriptor before launching anything** —
+     it is what the SessionStart assertion checks and what both contracts below are generated from.
+     If it is set but disagrees with where this repo actually is, stop and reconcile with the user;
+     do not silently prefer one.
    - **Base ref** = descriptor `base_ref` (default `origin/main`; verify it exists).
    - **Branch model** = descriptor `worktree_isolation`: `true` ⇒ worktrees; `false` ⇒ simple
      branches or a single sequential tree (typical for a `solo` POC).
@@ -90,18 +99,78 @@ drafts the *plan*, not the *descriptor*.
    `dlb-autoregister` hook then auto-registers, titles the session `<role> (<dlb-name>)`, launches
    the supervised monitor, sets the tier, and loads the card + memory on session start.
 
-7. **Emit per-thread launch blocks** — one fenced block per role, in dependency order. Each MUST
-   include: role identity + workspace (or "primary tree" for coordination roles); `/model <tier>`
-   **and** `/effort <level>` from the README; the DLB register + supervised-monitor launch
+7. **Hand off one launch per role**, in dependency order, using the surface's mechanism (see
+   "Rooting" below — get this wrong and the whole fleet is wrong). Every launch, on either surface,
+   MUST carry: the **root contract** (below); role identity + workspace; the model **and** effort
+   tier from the README; the DLB register + supervised-monitor launch
    (`Monitor({command: "~/.claude/hooks/dlb-monitor-supervised.sh --name <name>", persistent: true})`,
    or note the auto-register hook does this if `.claude/.dlb-role` is set); which memory/topic files
    to load; the role's **first task** with inputs + handoff target + the **gate it must pass**
    (`check_cmd`/`test_cmd`/DoD from the descriptor); and a pointer to the manifest.
 
+   - **Terminal** — emit one fenced, ready-to-paste block per role. Prefix each with the `cd` to its
+     workspace and `export DLB_EXPECT_ROOT=<project_root>` so the SessionStart assertion has
+     something to check. `/model` and `/effort` work here and belong in the block.
+   - **Desktop app** — a session's working directory is fixed when the session is created, and the
+     agent cannot change it afterwards. So the launcher must set it, not the agent. Spawn one session
+     per role with its `cwd` set to the workspace. If the spawn mechanism cannot set `cwd`, do NOT
+     paste the block into a session rooted somewhere else: tell the user to open a session at
+     `<project_root>` (folder picker) and hand them the block for that session. `/model` and
+     `/effort` are terminal dialogs and may not open here — state the tier in prose at the top of the
+     block **and** tell the user to set it in the app's model selector, rather than assuming a slash
+     command will take.
+
 8. **Surface owner-input items** as a short numbered list (batched — no interview modals).
+
+## Rooting — the failure this command exists to prevent
+
+A role thread rooted in the wrong repository is the most expensive failure this harness has produced,
+and it is **silent by construction**. On 2026-08-12 eleven SAT threads ran for an hour rooted in
+`baselineos-poc` instead of `sat-math-app`: each read the wrong `.claude/.dlb-role` (so
+`dlb-autoregister` no-opped for all eleven), the wrong `CLAUDE.md`, and the wrong descriptor. A
+misrouted thread is indistinguishable from an ordinary session, because the marker that would
+identify it lives in the repo it failed to open. Nothing can notice from the inside. So the
+expected root has to be carried in from outside — which is what the two contracts below do.
+
+Two facts to state plainly rather than rediscover:
+
+- **`EnterWorktree` cannot fix a wrong repo.** A sibling project is a separate repository, not a
+  worktree of the one you are in, so it never appears in that repo's `git worktree list`. It is the
+  right tool for a worktree of the *current* repo and useless for anything else.
+- **Absolute paths are a contract, not a fix.** They work, and the misrouted SAT fleet shipped clean
+  commits that way. But they hide the misrouting instead of correcting it, and they leak
+  machine-specific paths into committed config (that fleet's `check_cmd` and `test_cmd` are still
+  absolute today). Only use the cross-repo contract when rooting correctly is genuinely impossible,
+  and say so out loud when you do.
+
+**Root contract — put this at the top of every launch, both surfaces.** Generate it from the
+descriptor's `project_root`; never hand-write it per fleet.
+
+```
+ROOT CONTRACT — before anything else.
+This session must be rooted at: <project_root>
+Your first action is `pwd`. If it prints anything else, STOP, tell the user both paths, and do not
+start the task. Do not "work around it" with absolute paths — that is what hid a misrouted fleet for
+an hour on 2026-08-12. EnterWorktree cannot fix it: <project_root> is a separate repository.
+If `pwd` matches, ignore this block and use ordinary relative paths from here on.
+```
+
+**Cross-repo contract — only when the session genuinely cannot be rooted correctly**, and only with
+the user's explicit agreement. Also generated from `project_root`:
+
+```
+CROSS-REPO CONTRACT — this session is rooted at <actual>; the project is at <project_root>.
+1. Every path absolute, beginning <project_root>/ . Never relative, never ./, never cd.
+2. Every git command is `git -C <project_root> ...` . Never a bare `git`.
+3. Never `git add -A` or `git add .` — sibling threads share this tree. Stage your own files by path.
+4. `index.lock` means another thread is mid-commit: wait a few seconds and retry.
+5. Set DLB_ALLOW_ROOT_MISMATCH=1 so the SessionStart assertion stays quiet for this session only.
+```
 
 ## Guardrails
 - Prep only. Do NOT spawn agents, deploy, push, or take destructive/outward actions.
+- **Every launch is rooted before it is briefed.** A thread that cannot be rooted at `project_root`
+  does not get a task until the user has agreed to the cross-repo contract.
 - **Never drop a project into the wrong repo** (step 2) — a new-stack project gets its own repo.
 - Honor the descriptor: don't hardcode BaselineOS gates/roles/deploy — read them from `.claude/project.md`.
 - If worktree_isolation, never mutate primary HEAD. Route mechanical/polling setup to Codex (README mechanical lane).
