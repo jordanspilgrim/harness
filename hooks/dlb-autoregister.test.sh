@@ -102,6 +102,36 @@ run "other clone → soft note, still bootstraps"    "AGENT ROLE BOOTSTRAP" -- "
 run "other clone → mentions the path mismatch"     "different path" -- "$SAMEBASE"
 run "other clone → NOT the hard banner"            '!WRONG WORKING DIRECTORY' -- "$SAMEBASE"
 
+echo "— a worktree of the expected repo is correctly rooted, not misrouted —"
+# The fleet RUNS in worktrees, and the descriptor is committed, so every worktree carries
+# a copy declaring the MAIN repo's path. Before the 2026-08-13 fix this halted every
+# correctly-running worktree thread — an always-red gate, which is worth exactly as much
+# as a never-red one. Both directions below.
+WTIN="$TMP/sat-math-app/.claude/worktrees/sat-math-app-qa"; mkdir -p "$WTIN/.claude"
+cp "$TMP/sat-math-app/.claude/project.md" "$WTIN/.claude/"; printf 'qa\n' > "$WTIN/.claude/.dlb-role"
+run "worktree under the expected repo → OK"       "AGENT ROLE BOOTSTRAP" -- "$WTIN"
+run "worktree under the expected repo → no halt"  '!WRONG WORKING DIRECTORY' -- "$WTIN"
+
+if command -v git >/dev/null 2>&1; then
+  GR="$TMP/realrepo"; mkdir -p "$GR/.claude"
+  printf '# d\n\n```yaml\nname: realrepo\nproject_root: %s\n```\n' "$GR" > "$GR/.claude/project.md"
+  printf 'qa\n' > "$GR/.claude/.dlb-role"
+  ( cd "$GR" && git init -q . && git add -A && \
+    git -c user.email=t@t -c user.name=t commit -qm init && \
+    git worktree add -q "$TMP/outside-wt" -b wt ) >/dev/null 2>&1
+  if [ -d "$TMP/outside-wt" ]; then
+    run "linked worktree OUTSIDE the repo dir → OK"  "AGENT ROLE BOOTSTRAP" -- "$TMP/outside-wt"
+    run "linked worktree OUTSIDE → no halt"          '!WRONG WORKING DIRECTORY' -- "$TMP/outside-wt"
+  else
+    echo "SKIP  linked-worktree cases (git worktree add failed)"
+  fi
+fi
+# The benign neighbour must still halt: a directory that merely LOOKS worktree-shaped but
+# belongs to a different repo is exactly the misrouting this gate exists for.
+FAKEWT="$TMP/baselineos-poc/.claude/worktrees/sat-math-app-qa"; mkdir -p "$FAKEWT/.claude"
+cp "$TMP/sat-math-app/.claude/project.md" "$FAKEWT/.claude/"; printf 'qa\n' > "$FAKEWT/.claude/.dlb-role"
+run "worktree-shaped path in ANOTHER repo → halts" "WRONG WORKING DIRECTORY" -- "$FAKEWT"
+
 echo "— role declared but nothing to resolve gates from —"
 run "role set, repo has no descriptor"             "NO DESCRIPTOR" -- "$NODESC"
 run "descriptor present → NO such warning"         '!NO DESCRIPTOR' -- "$RIGHT"

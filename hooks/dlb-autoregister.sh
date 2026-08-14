@@ -62,13 +62,37 @@ descriptor_root() {
   printf '%s' "${v/#\~/$HOME}"
 }
 
+# Is $1 a linked git worktree whose shared .git lives under $2? A worktree is a
+# legitimate root for a role thread — it is how the fleet is SUPPOSED to run — but its
+# directory name never matches the repo's, so a naive path compare would halt every
+# worktree session. Worktrees under the repo (.claude/worktrees/, this harness's
+# convention) are caught by the cheap prefix test below; this covers ones created
+# elsewhere. One git call, and only on the path that would otherwise halt the thread.
+in_expected_repo() {
+  local common
+  common=$(git -C "$1" rev-parse --git-common-dir 2>/dev/null) || return 1
+  case "$common" in /*) ;; *) common="$1/$common" ;; esac
+  common="$(canon "$common")"
+  case "$common" in "$2"/*|"$2") return 0 ;; esac
+  return 1
+}
+
 PROJ_C="$(canon "$PROJ")"
 EXPECT="${DLB_EXPECT_ROOT:-}"                       # explicit: set by a terminal launcher
 [ -z "$EXPECT" ] && EXPECT="$(descriptor_root "$PROJ")"
 
 if [ -n "$EXPECT" ] && [ "${DLB_ALLOW_ROOT_MISMATCH:-}" != "1" ]; then
   EXPECT_C="$(canon "$EXPECT")"
-  if [ "$PROJ_C" != "$EXPECT_C" ]; then
+  # Rooted correctly means "at the expected repo, or inside it". A worktree or
+  # subdirectory OF the expected repo counts, and that case is checked first because it
+  # is the NORMAL state for a fleet: the descriptor is committed, so every worktree
+  # carries its own copy declaring the MAIN repo's path. A plain inequality test would
+  # therefore flag every correctly-running worktree thread as misrouted — caught by the
+  # spawn probe on 2026-08-13 before it reached anyone.
+  ROOTED=no
+  case "$PROJ_C" in "$EXPECT_C"|"$EXPECT_C"/*) ROOTED=yes ;; esac
+  [ "$ROOTED" = no ] && in_expected_repo "$PROJ_C" "$EXPECT_C" && ROOTED=yes
+  if [ "$ROOTED" = no ]; then
     # Two tiers. A different BASENAME means a different repo entirely — that is the
     # misrouted-fleet failure and it halts the thread. A matching basename at a
     # different path is just a different clone or machine (project_root is recorded
