@@ -111,14 +111,28 @@ drafts the *plan*, not the *descriptor*.
    - **Terminal** — emit one fenced, ready-to-paste block per role. Prefix each with the `cd` to its
      workspace and `export DLB_EXPECT_ROOT=<project_root>` so the SessionStart assertion has
      something to check. `/model` and `/effort` work here and belong in the block.
-   - **Desktop app** — a session's working directory is fixed when the session is created, and the
-     agent cannot change it afterwards. So the launcher must set it, not the agent. Spawn one session
-     per role with its `cwd` set to the workspace. If the spawn mechanism cannot set `cwd`, do NOT
-     paste the block into a session rooted somewhere else: tell the user to open a session at
-     `<project_root>` (folder picker) and hand them the block for that session. `/model` and
-     `/effort` are terminal dialogs and may not open here — state the tier in prose at the top of the
-     block **and** tell the user to set it in the app's model selector, rather than assuming a slash
-     command will take.
+   - **Desktop app** — a session's working directory is fixed when the session is created and the
+     agent cannot change it afterwards, so the **launcher** must set it. Spawning a session with a
+     `cwd` does work: measured 2026-08-13, a session spawned with `cwd` under another repo rooted
+     there, not in the parent. The widespread belief that desktop sessions are pinned to the parent
+     repo and can only work cross-repo by absolute path is **false** — do not repeat it.
+
+     Two details that change what you should emit:
+
+     - **A spawned session lands in a fresh worktree of that repo** (`<repo>/.claude/worktrees/…`),
+       not at the repo root. With `worktree_isolation: true` that is exactly right — each role gets
+       its own tree for free. With `worktree_isolation: false` it is wrong: a project that wants one
+       shared tree gets one worktree per role and the work fragments. For `false`, have the user open
+       sessions at `<project_root>` directly (folder picker) rather than spawning them.
+     - **`CLAUDE_PROJECT_DIR` is unset** in a spawned session, so anything reading it must fall back
+       to `$PWD`. `dlb-autoregister.sh` does; don't write a launch block that depends on the variable.
+
+     If you cannot set `cwd` for any reason, do NOT paste the block into a session rooted elsewhere.
+     Tell the user to open a session at `<project_root>` and hand them the block for that session.
+
+     `/model` and `/effort` are terminal dialogs and may not open here — state the tier in prose at
+     the top of the block **and** tell the user to set it in the app's model selector, rather than
+     assuming a slash command took.
 
 8. **Surface owner-input items** as a short numbered list (batched — no interview modals).
 
