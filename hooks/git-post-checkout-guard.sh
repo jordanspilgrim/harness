@@ -2,6 +2,7 @@
 # Project post-checkout hook: restore the primary branch after Claude checkouts.
 # No force/reset/clean: Git must be able to carry every working-tree change.
 set -uo pipefail
+[ "${HARNESS_POSTCHECKOUT_RECOVERING:-}" = 1 ] && exit 0
 [ "${CLAUDECODE:-}" = 1 ] || exit 0
 [ "${3:-}" = 1 ] || exit 0
 
@@ -23,6 +24,19 @@ alert() {
     printf 'HARNESS ALERT: could not write ~/.claude/harness-alerts.log\n' >&2
   fi
 }
+
+# The primary Git directory alone does not identify the working tree: callers
+# can independently supply --work-tree or GIT_WORK_TREE. Compare physical paths.
+actual_tree=$(git rev-parse --show-toplevel 2>/dev/null) || actual_tree=''
+primary_tree=''
+IFS= read -r -d '' primary_tree < <(git worktree list --porcelain -z 2>/dev/null) || primary_tree=''
+primary_tree=${primary_tree#worktree }
+actual_tree=$(cd "$actual_tree" 2>/dev/null && pwd -P) || actual_tree=''
+primary_tree=$(cd "$primary_tree" 2>/dev/null && pwd -P) || primary_tree=''
+if [ -z "$actual_tree" ] || [ -z "$primary_tree" ] || [ "$actual_tree" != "$primary_tree" ]; then
+  alert "RECOVERY REFUSED: actual working tree is not the primary worktree; no recovery attempted."
+  exit 1
+fi
 
 primary=$(git config --get harness.primaryBranch 2>/dev/null) || primary=''
 if [ -z "$primary" ]; then
@@ -46,8 +60,11 @@ if [ -z "$primary" ] || ! git show-ref --verify --quiet "refs/heads/$primary"; t
 fi
 [ "$found_ref" = "refs/heads/$primary" ] && exit 0
 
-# Nested post-checkout sees the restored branch and exits above.
-if git switch -- "$primary"; then
+# Resolve the branch once. Branch-dependent config may change during recovery;
+# the inherited sentinel stops the nested hook before it resolves another target.
+# Git must also refuse ignored-file collisions, just like tracked/untracked ones.
+if (unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE
+    HARNESS_POSTCHECKOUT_RECOVERING=1 git -C "$primary_tree" --work-tree="$primary_tree" switch --no-overwrite-ignore -- "$primary"); then
   alert "Unexpected Claude checkout in primary worktree; restored $primary."
 else
   alert "RECOVERY FAILED: could not restore $primary safely; HEAD left as found. Inspect working-tree changes; no force used."

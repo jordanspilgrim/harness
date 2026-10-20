@@ -15,7 +15,7 @@ with tempfile.TemporaryDirectory(prefix='harness-post-checkout-') as tmp:
     root = Path(tmp)
     primary, secondary = root / 'primary', root / 'secondary'
     env = {k: v for k, v in os.environ.items()
-           if not k.startswith('GIT_') and k != 'CLAUDECODE'}
+           if not k.startswith('GIT_') and k not in ('CLAUDECODE', 'HARNESS_POSTCHECKOUT_RECOVERING')}
     env.update(HOME=str(root / 'home'), GIT_CONFIG_NOSYSTEM='1',
                GIT_CONFIG_GLOBAL=os.devnull)
     Path(env['HOME']).mkdir()
@@ -122,16 +122,93 @@ with tempfile.TemporaryDirectory(prefix='harness-post-checkout-') as tmp:
     r = git('switch', 'main', claude='1', ok=False)
     check('missing primary alerts without guessing',
           r.returncode != 0 and head() == 'main' and 'Cannot resolve' in r.stderr and alerted(r))
+    # Ignored files (and ignored directories) must survive either initiating
+    # branch-switch spelling when restoration would replace them with a file.
+    git('config', 'harness.primaryBranch', 'main')
+    git('switch', 'main')
+    (primary / '.gitignore').write_text('payload\n')
+    (primary / 'payload').write_text('committed payload\n')
+    git('add', '.gitignore')
+    git('add', '-f', 'payload')
+    git('commit', '-qm', 'main payload')
+    git('switch', '-qc', 'no-payload')
+    git('rm', '-q', 'payload')
+    git('commit', '-qm', 'remove payload')
+    git('branch', 'no-payload-copy')
+    for spelling in ('switch', 'checkout'):
+        for directory in (False, True):
+            payload = primary / 'payload'
+            if directory:
+                payload.mkdir()
+                local = payload / 'local'
+            else:
+                local = payload
+            local.write_text('irreplaceable\n')
+            r = git(spelling, 'no-payload-copy', claude='1', ok=False)
+            check(f'{spelling}: ignored {"directory" if directory else "file"} preserved',
+                  r.returncode != 0 and head() == 'no-payload-copy'
+                  and local.read_text() == 'irreplaceable\n'
+                  and 'RECOVERY FAILED' in r.stderr)
+            local.unlink()
+            if directory:
+                payload.rmdir()
+            git('switch', 'no-payload')
+    git('switch', 'other')
     # Exercise the explicitly best-effort layer-1 directory forms end-to-end.
     git('config', 'harness.primaryBranch', 'main')
     for label, args in [
         ('repeated -C', ['-C', str(primary), '-C', '.', 'switch', 'other']),
         ('relative git-dir', ['-C', str(primary), '--git-dir=.git', 'switch', 'other']),
-        ('split git-dir/work-tree', [f'--git-dir={primary}/.git',
-                                    f'--work-tree={secondary}', 'switch', 'other']),
     ]:
         r = git(*args, cwd=secondary, claude='1')
         check(label + ' outcome restored', head() == 'main' and 'HARNESS ALERT' in r.stderr)
+    # Both CLI work-tree spellings and the inherited environment can select
+    # secondary files while retaining the primary administrative directory.
+    for label, args, inherited in [
+        ('equals work-tree', [f'--git-dir={primary}/.git', f'--work-tree={secondary}'], {}),
+        ('split work-tree', ['--git-dir', str(primary / '.git'), '--work-tree', str(secondary)], {}),
+        ('inherited work-tree', [], {'GIT_DIR': str(primary / '.git'), 'GIT_WORK_TREE': str(secondary)}),
+    ]:
+        git('switch', 'carry')
+        before_files = {p.name: p.read_bytes() for p in secondary.iterdir() if p.is_file()}
+        e = dict(env, CLAUDECODE='1', **inherited)
+        r = subprocess.run(['git', *args, 'switch', 'other'], cwd=secondary,
+                           env=e, text=True, capture_output=True, timeout=15)
+        check(label + ': secondary files and both HEADs untouched by recovery',
+              r.returncode != 0 and head() == 'other' and head(secondary) == 'DETACHED'
+              and before_files == {p.name: p.read_bytes() for p in secondary.iterdir() if p.is_file()}
+              and 'RECOVERY REFUSED' in r.stderr)
+    # Equivalent primary paths are safe, including symlinks and spaces.
+    alias = root / 'primary alias'
+    alias.symlink_to(primary, target_is_directory=True)
+    e = dict(env, CLAUDECODE='1', GIT_DIR=str(primary / '.git'), GIT_WORK_TREE=str(alias))
+    # Clearing GIT_WORK_TREE must not expose a conflicting core.worktree config.
+    e.update(GIT_CONFIG_COUNT='1', GIT_CONFIG_KEY_0='core.worktree', GIT_CONFIG_VALUE_0=str(secondary))
+    before_files = {p.name: p.read_bytes() for p in secondary.iterdir() if p.is_file()}
+    r = subprocess.run(['bash', hook, 'old', 'new', '1'], cwd=secondary,
+                       env=e, text=True, capture_output=True, timeout=15)
+    check('primary alias recovers using explicitly bound primary tree',
+          r.returncode == 0 and head() == 'main' and alerted(r)
+          and before_files == {p.name: p.read_bytes() for p in secondary.iterdir() if p.is_file()})
+    # A branch-dependent target used to bounce between main and other forever.
+    git('config', '--unset', 'harness.primaryBranch')
+    for branch, target in [('main', 'other'), ('other', 'main')]:
+        config = root / ('on-' + branch)
+        config.write_text('[harness]\nprimaryBranch = ' + target + '\n')
+        git('config', f'includeIf.onbranch:{branch}.path', config)
+    count = root / 'entries'
+    post.write_text('#!/bin/sh\necho entry >> ' + shlex.quote(str(count)) + '\nexec bash '
+                    + shlex.quote(hook) + ' "$@"\n')
+    r = git('switch', 'other', claude='1')
+    check('branch-dependent configuration recovers once without recursion',
+          head() == 'main' and len(count.read_text().splitlines()) == 2 and alerted(r))
+    before = log.read_text()
+    e = dict(env, CLAUDECODE='1', HARNESS_POSTCHECKOUT_RECOVERING='1')
+    r = subprocess.run(['bash', hook, 'old', 'new', '1'], cwd=primary,
+                       env=e, text=True, capture_output=True, timeout=15)
+    check('inherited sentinel exits silently before resolving changing config',
+          r.returncode == 0 and not r.stderr and head() == 'main' and log.read_text() == before)
+    git('config', 'harness.primaryBranch', 'main')
     log.unlink()
     log.parent.rmdir()
     log.parent.write_text('blocks log directory creation')
