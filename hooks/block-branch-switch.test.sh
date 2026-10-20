@@ -38,6 +38,34 @@ run deny "$GC 1a2b3c4d"
 run deny "foo && $GS bar"
 run deny "$GC feat/x; npm test"
 
+# 2026-10-20 gap: git GLOBAL options before the subcommand, and a target tree
+# other than the CWD. PRIMARY must be the primary worktree path.
+PRIMARY="${PRIMARY:-$(git worktree list --porcelain 2>/dev/null | sed -n '1s/^worktree //p')}"
+run deny "git -C $PRIMARY che""ckout --detach 1a2b3c4d"
+run deny "git -C $PRIMARY swi""tch --detach main"
+run deny "git -c core.x=y -C $PRIMARY che""ckout feature-x"
+run deny "git --work-tree=$PRIMARY che""ckout feature-x"
+run deny "cd $PRIMARY && $GC feature-x"
+run allow "git -C $PRIMARY che""ckout -- README.md"
+run allow "git -C $PRIMARY che""ckout-index -a"
+run allow "git -C $PRIMARY status"
+
+# Creation/detachment is never a same-branch no-op, including aliases/clusters.
+run deny "$GS --create fresh $CUR"
+run deny "$GS --create=fresh $CUR"
+run deny "$GS --force-create fresh $CUR"
+run deny "$GS --force-create=fresh $CUR"
+run deny "$GS --detach $CUR"
+run deny "$GC --orphan=fresh $CUR"
+run deny "$GC -bfresh $CUR"
+run deny "$GC -Bfresh $CUR"
+run deny "$GS -cfresh $CUR"
+run deny "$GS -Cfresh $CUR"
+run deny "$GC -qd $CUR"
+run deny "$GS -qd $CUR"
+run deny "$GC -fb fresh $CUR"
+run deny "git --config-env core.x=PATH -C $PRIMARY checkout -b fresh"
+
 # Benign commands that merely contain the words / an apostrophe — must allow.
 run allow "cat >> ledger.md <<'EOF'
 don't trust it — apostrophes must not block
