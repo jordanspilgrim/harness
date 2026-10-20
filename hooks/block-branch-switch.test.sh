@@ -50,6 +50,22 @@ run allow "git -C $PRIMARY che""ckout -- README.md"
 run allow "git -C $PRIMARY che""ckout-index -a"
 run allow "git -C $PRIMARY status"
 
+# Creation/detachment is never a same-branch no-op, including aliases/clusters.
+run deny "$GS --create fresh $CUR"
+run deny "$GS --create=fresh $CUR"
+run deny "$GS --force-create fresh $CUR"
+run deny "$GS --force-create=fresh $CUR"
+run deny "$GS --detach $CUR"
+run deny "$GC --orphan=fresh $CUR"
+run deny "$GC -bfresh $CUR"
+run deny "$GC -Bfresh $CUR"
+run deny "$GS -cfresh $CUR"
+run deny "$GS -Cfresh $CUR"
+run deny "$GC -qd $CUR"
+run deny "$GS -qd $CUR"
+run deny "$GC -fb fresh $CUR"
+run deny "git --config-env core.x=PATH -C $PRIMARY checkout -b fresh"
+
 # Benign commands that merely contain the words / an apostrophe — must allow.
 run allow "cat >> ledger.md <<'EOF'
 don't trust it — apostrophes must not block

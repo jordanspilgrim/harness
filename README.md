@@ -67,6 +67,22 @@ git clone https://github.com/jordanspilgrim/harness.git ~/ClaudeCode/harness
 
 The installer prints the exact `dlb-autoregister` SessionStart block to add to `~/.claude/settings.json`.
 
+For outcome protection, wire `git-post-checkout-guard.sh` into each project's Git
+`post-checkout` hook. For Husky, add this line to `.husky/post-checkout`:
+
+```sh
+[ ! -f "$HOME/.claude/hooks/git-post-checkout-guard.sh" ] || bash "$HOME/.claude/hooks/git-post-checkout-guard.sh" "$@"
+```
+
+It runs only with `CLAUDECODE=1`, only after branch checkouts in the primary
+worktree. It restores the primary branch without forcing dirty changes and alerts
+on stderr and in `~/.claude/harness-alerts.log`. Secondary worktrees and human
+terminal checkouts are unaffected. The primary branch defaults to `origin/HEAD`,
+then `init.defaultBranch`, then an existing `main` or `master`; set
+`git config harness.primaryBranch <branch>` for an explicit choice. An unresolved
+or missing primary branch alerts without attempting recovery. This complements
+the PreToolUse check, including its best-effort directory-option parsing.
+
 Refresh an existing checkout and reinstall in one step:
 
 ```bash

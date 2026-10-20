@@ -111,7 +111,7 @@ if tokens is None:
 
 SEP = {";", "&&", "||", "&", "|"}
 GLOBAL_VAL = {"-C", "--git-dir", "--work-tree", "-c", "--namespace",
-              "--exec-path", "--super-prefix"}
+              "--exec-path", "--super-prefix", "--config-env"}
 
 last_cd = ""            # last `cd <path>` target seen before a git subcommand
 at_subcmd_start = True
@@ -293,7 +293,7 @@ if tokens is None:
 
 SEP = {";", "&&", "||", "&", "|"}
 GLOBAL_VAL = {"-C", "--git-dir", "--work-tree", "-c", "--namespace",
-              "--exec-path", "--super-prefix"}
+              "--exec-path", "--super-prefix", "--config-env"}
 # Walk past git GLOBAL options (-C <dir>, --work-tree, -c k=v, ...) to the
 # real subcommand, so `git -C /primary checkout X` is detected (2026-10-20 gap:
 # only a bare `git checkout` was recognised). Emit: 1, the effective target dir
@@ -391,7 +391,7 @@ current_branch=$(git -C "$loc" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "
 # Allow: same-branch no-op (target matches current).
 # (Not a no-op when it detaches or creates: --detach / -d, --orphan, -b/-B/-c/-C.)
 if [ -n "$target" ] && [ "$target" = "$current_branch" ] \
-   && ! echo "$git_part" | grep -qE '[[:space:]](--detach|-d|--orphan|-[bBcC])([[:space:]]|$)'; then
+   && ! echo "$git_part" | grep -qE '[[:space:]](--(detach|orphan|create|force-create)(=|[[:space:]]|$)|-[^-[:space:]]*[dbBcC])'; then
   exit 0
 fi
 
