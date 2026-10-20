@@ -80,8 +80,8 @@ cmd=$(jq -r '.tool_input.command // empty')
 #  - `git clean -n`/`--dry-run` is non-destructive even with -f, so it is not
 #    flagged.
 # The python emits two lines: "1"/"0" then the effective target dir (may be
-# empty = use CWD). NOTE: the checkout/switch block below has the same
-# pre-existing `-C` blind spot; hardening it is a tracked fast-follow.
+# empty = use CWD). The checkout/switch block below resolves the same way
+# (closed 2026-10-20 after `git -C <primary> checkout --detach` slipped through).
 # ---------------------------------------------------------------------------
 if command -v python3 >/dev/null 2>&1; then
   destructive_out=$(printf '%s' "$cmd" | python3 -c '
@@ -292,17 +292,61 @@ if tokens is None:
     sys.exit(0)
 
 SEP = {";", "&&", "||", "&", "|"}
+GLOBAL_VAL = {"-C", "--git-dir", "--work-tree", "-c", "--namespace",
+              "--exec-path", "--super-prefix"}
+# Walk past git GLOBAL options (-C <dir>, --work-tree, -c k=v, ...) to the
+# real subcommand, so `git -C /primary checkout X` is detected (2026-10-20 gap:
+# only a bare `git checkout` was recognised). Emit: 1, the effective target dir
+# (the -C/--work-tree/--git-dir value, else the last `cd` target, else empty =
+# CWD), and the subcommand with its args.
+last_cd = ""
 at_subcmd_start = True
 for i, tok in enumerate(tokens):
-    # Sub-command starts with `git`; next token must be exactly `checkout`
-    # or `switch` (rejects `checkout-index`, `switch-protocol`, etc. that
-    # happen to share a prefix).
-    if at_subcmd_start and tok == "git" \
-       and i + 1 < len(tokens) and tokens[i+1] in ("checkout", "switch"):
-        print(1); sys.exit(0)
+    if at_subcmd_start and tok == "cd":
+        for t in tokens[i+1:]:
+            if t in SEP:
+                break
+            if not t.startswith("-"):
+                last_cd = t
+                break
+    if at_subcmd_start and tok == "git":
+        seg = []
+        for t in tokens[i+1:]:
+            if t in SEP:
+                break
+            seg.append(t)
+        target_dir = ""
+        k = 0
+        while k < len(seg):
+            t = seg[k]
+            if t in GLOBAL_VAL:
+                if k + 1 < len(seg) and t in ("-C", "--work-tree", "--git-dir"):
+                    target_dir = seg[k+1]
+                k += 2
+                continue
+            if t.startswith("--") and "=" in t:
+                key, _, val = t.partition("=")
+                if key in ("--work-tree", "--git-dir"):
+                    target_dir = val
+                k += 1
+                continue
+            if t.startswith("-"):
+                k += 1
+                continue
+            break
+        # Exact subcommand match rejects checkout-index, switch-protocol, etc.
+        if k < len(seg) and seg[k] in ("checkout", "switch"):
+            print(1)
+            print(target_dir or last_cd or "")
+            print("git " + " ".join(seg[k:]))
+            sys.exit(0)
     at_subcmd_start = tok in SEP
 print(0)
 ' 2>/dev/null)
+  co_out="$is_target_cmd"
+  is_target_cmd=$(printf '%s\n' "$co_out" | sed -n '1p')
+  co_dir=$(printf '%s\n' "$co_out" | sed -n '2p')
+  co_part=$(printf '%s\n' "$co_out" | sed -n '3p')
   [ "$is_target_cmd" = "1" ] || exit 0
 else
   # Fallback: legacy regex (matches the target-command substring anywhere,
@@ -314,7 +358,14 @@ else
 fi
 
 # Isolate the `git checkout|switch ...` portion (stop at shell separators).
-git_part=$(echo "$cmd" | grep -oE 'git[[:space:]]+(checkout|switch)([[:space:]][^;&|`)]*)?' | head -1)
+git_part="${co_part:-}"
+[ -n "$git_part" ] || git_part=$(echo "$cmd" | grep -oE 'git[[:space:]]+(checkout|switch)([[:space:]][^;&|`)]*)?' | head -1)
+# Resolve the tree the command acts on (-C / --work-tree / cd), not just the CWD.
+loc="."
+if [ -n "${co_dir:-}" ]; then
+  case "$co_dir" in */.git) co_dir="${co_dir%/.git}" ;; .git) co_dir="." ;; esac
+  loc="$co_dir"
+fi
 
 # Allow: file restore via `--` separator (e.g. `git checkout -- file.txt`).
 if echo "$git_part" | grep -qE '[[:space:]]--([[:space:]]|$)'; then
@@ -335,10 +386,12 @@ target=$(echo "$git_part" | awk '{
   print last
 }')
 
-current_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+current_branch=$(git -C "$loc" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
 
 # Allow: same-branch no-op (target matches current).
-if [ -n "$target" ] && [ "$target" = "$current_branch" ]; then
+# (Not a no-op when it detaches or creates: --detach / -d, --orphan, -b/-B/-c/-C.)
+if [ -n "$target" ] && [ "$target" = "$current_branch" ] \
+   && ! echo "$git_part" | grep -qE '[[:space:]](--detach|-d|--orphan|-[bBcC])([[:space:]]|$)'; then
   exit 0
 fi
 
@@ -350,13 +403,13 @@ fi
 # `<primary>/.git`. Resolve both to absolute paths because the primary
 # returns a relative `.git` by default and equality comparisons need
 # canonical forms.
-git_dir=$(git rev-parse --git-dir 2>/dev/null || echo "")
-common_dir=$(git rev-parse --git-common-dir 2>/dev/null || echo "")
+git_dir=$(git -C "$loc" rev-parse --git-dir 2>/dev/null || echo "")
+common_dir=$(git -C "$loc" rev-parse --git-common-dir 2>/dev/null || echo "")
 if [ -n "$git_dir" ]; then
-  git_dir=$(cd "$git_dir" 2>/dev/null && pwd || echo "$git_dir")
+  git_dir=$(cd "$loc" 2>/dev/null && cd "$git_dir" 2>/dev/null && pwd || echo "$git_dir")
 fi
 if [ -n "$common_dir" ]; then
-  common_dir=$(cd "$common_dir" 2>/dev/null && pwd || echo "$common_dir")
+  common_dir=$(cd "$loc" 2>/dev/null && cd "$common_dir" 2>/dev/null && pwd || echo "$common_dir")
 fi
 
 is_primary="false"
@@ -410,7 +463,7 @@ fi
 
 # SECONDARY WORKTREE — keep the existing marker-based authorization so
 # rebases (which detach HEAD and then reattach to the branch) keep working.
-repo_root=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
+repo_root=$(git -C "$loc" rev-parse --show-toplevel 2>/dev/null || echo "")
 marker="$repo_root/.claude/.branch-switch-allow"
 if [ -n "$repo_root" ] && [ -f "$marker" ]; then
   # Match either a `*` wildcard line or an exact target line. Use FIXED-STRING
