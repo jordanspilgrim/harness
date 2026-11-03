@@ -26,6 +26,7 @@ Format: a single fenced ```yaml block. Keep it short. Prose around it is for hum
 | `roster_profile` | `solo` \| `small` \| `full` | `small` | which roles kickoff stands up |
 | `roles` | list | (from profile) | optional explicit override of the role set |
 | `top_tier_model` | model id \| `none` | `none` | opt-in top tier for the high-judgment roles (`architect`, `ideator`, `bugfixer`) — see below |
+| `access` | map role → {`mcp`, `tools`, `paths`} \| `none` | `none` | **access check** — `/kickoff` verifies each role's access before launching it; a role with a gap is not launched — see below |
 
 ### `project_root` — the absolute path this repo lives at
 
@@ -73,6 +74,40 @@ gate stays on its default (`opus`). Note that `opus` itself now resolves to Clau
 carries elevated cyber safeguards — its card documents a `claude-opus-4-8` fallback for the rare
 security-sub-pass refusal. Verify the chosen model is actually selectable on your plan (`/model`).
 
+### `access` — what each role needs to reach
+
+A map from role name to the MCP servers, CLI tools, and filesystem paths that role must be able to
+use. `/kickoff` checks every entry before it launches the role (see its access-check step) and
+records the result in the manifest's Access table.
+
+```yaml
+access:
+  product-lead:
+    mcp: [notion, slack]           # server names as `claude mcp list` shows them
+    tools: [gh]                    # executables that must resolve on PATH
+    paths: [~/Documents/specs]     # must exist and be readable
+  be-dev:
+    tools: [uv, docker]
+```
+
+**Why it exists.** Agents route around missing access instead of reporting it. In one fleet
+`product-lead` had no Notion connector, so it quietly asked another agent to read and write Notion
+on its behalf. The work got done, but through a relay nobody approved: the second agent acted
+outside its lane, its own task stalled, and the real gap (a connector the owner had to add) stayed
+invisible until someone read both transcripts. A declared access list turns that into a check that
+fails at launch, and the bootstrap rule (README, "Missing access") turns a mid-task discovery into a
+`set_status(blocked)` the owner can see.
+
+Rules:
+
+- A role with a failed check is **not launched**. The gap goes to the owner as an input item, the
+  same as a missing credential.
+- A role absent from the map is assumed to need nothing beyond the repo. `access: none` disables the
+  check entirely.
+- List only what the role cannot do its job without. Optional conveniences do not belong here.
+- Never satisfy one role's gap by routing its work through another role. Fix the access, or change
+  the plan with the owner.
+
 ### `roster_profile` → default role set
 - **solo** — `builder`, `reviewer` (+ `evaluator` if the plan is gated). Sequential; minimal DLB. One-person POC.
 - **small** — `builder`(s), `reviewer`, `qa`. Light team.
@@ -99,6 +134,7 @@ acceptance: none               # web | cli | none  (+ a short how-to note)
 product_context: ""            # one line: what this is / who it's for
 sources_of_truth: none         # or a doc set + which paths gate which doc
 roster_profile: small          # solo | small | full
+access: none                   # or role → {mcp, tools, paths}; kickoff blocks a role with a gap
 ```
 
 ## Example — BaselineOS (reproduces today's behavior)

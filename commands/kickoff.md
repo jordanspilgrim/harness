@@ -83,10 +83,18 @@ drafts the *plan*, not the *descriptor*.
      descriptor sets **`top_tier_model`**, emit `/model <top_tier_model>` for `architect`, `ideator`,
      and `bugfixer` (not `reviewer` — it stays `opus`); every other role keeps its default. No
      `top_tier_model` ⇒ the README default column for all.
+   - **Access check** from the descriptor's `access:` map (skip if `none` or absent). For every
+     staffed role with an entry, verify each item from the machine the role will run on:
+     `mcp` → the server is listed and connected in `claude mcp list`; `tools` → `command -v <tool>`
+     resolves; `paths` → `test -r <path>` (after `~` expansion). A role with any failed item is
+     **not launched**: list the exact gap as an owner-input item (step 8) and hold its launch, and any
+     launch that depends on it, until the owner fixes the access or changes the plan. Do not reassign
+     its work to a role that happens to have the access. Record every role's result for the manifest.
 
 4. **Build the manifest** `.claude/plans/<slug>/manifest.md` (template `~/.claude/agents/_templates/manifest.md`):
    roster table (role → DLB name → model/effort → workspace → first task), the task DAG + gate order,
-   base ref + SHA, the **descriptor's gates + DoD**, and an "owner decisions needed" section.
+   base ref + SHA, the **descriptor's gates + DoD**, the **Access** table (each role's required
+   access, verified date, and any gap from step 3), and an "owner decisions needed" section.
 
 5. **Stand up workspaces** per the branch model:
    - `worktree_isolation: true` → `git worktree add .claude/worktrees/<slug>-<role> <base-ref>` per
@@ -106,7 +114,10 @@ drafts the *plan*, not the *descriptor*.
    (`Monitor({command: "~/.claude/hooks/dlb-monitor-supervised.sh --name <name>", persistent: true})`,
    or note the auto-register hook does this if `.claude/.dlb-role` is set); which memory/topic files
    to load; the role's **first task** with inputs + handoff target + the **gate it must pass**
-   (`check_cmd`/`test_cmd`/DoD from the descriptor); and a pointer to the manifest.
+   (`check_cmd`/`test_cmd`/DoD from the descriptor); the role's **declared access** with the
+   missing-access rule ("if you find you lack access you need, `set_status(blocked, detail=\"missing
+   access: <what>\")` and tell the owner; never ask another agent to act on your behalf"); and a
+   pointer to the manifest. Never launch a role whose access check failed in step 3.
 
    - **Terminal** — emit one fenced, ready-to-paste block per role. Prefix each with the `cd` to its
      workspace and `export DLB_EXPECT_ROOT=<project_root>` so the SessionStart assertion has
@@ -134,7 +145,8 @@ drafts the *plan*, not the *descriptor*.
      the top of the block **and** tell the user to set it in the app's model selector, rather than
      assuming a slash command took.
 
-8. **Surface owner-input items** as a short numbered list (batched — no interview modals).
+8. **Surface owner-input items** as a short numbered list (batched — no interview modals),
+   including every access gap from step 3 with the exact server, tool, or path to add.
 
 ## Rooting — the failure this command exists to prevent
 
@@ -186,6 +198,9 @@ CROSS-REPO CONTRACT — this session is rooted at <actual>; the project is at <p
 - **Every launch is rooted before it is briefed.** A thread that cannot be rooted at `project_root`
   does not get a task until the user has agreed to the cross-repo contract.
 - **Never drop a project into the wrong repo** (step 2) — a new-stack project gets its own repo.
+- **Missing access blocks; it is never routed around.** A role that fails its access check is not
+  launched, and a role that discovers a gap mid-task reports `blocked`. Nobody closes the gap by
+  relaying the work through another role.
 - Honor the descriptor: don't hardcode BaselineOS gates/roles/deploy — read them from `.claude/project.md`.
 - If worktree_isolation, never mutate primary HEAD. Route mechanical/polling setup to Codex (README mechanical lane).
 - If plan and handoff disagree on scope, surface it. Verify base ref, file existence, and roster with the user before creating anything.

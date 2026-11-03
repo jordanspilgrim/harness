@@ -139,6 +139,16 @@ in `_templates/manifest.md`.
    BEFORE starting work, `update_status` through `accepted → running → done`, report blockers.
 7. Do your job per your card. Write ONLY the artifacts you own. Hand off per your card.
 
+### Missing access
+
+If your task needs an MCP server, tool, or path you cannot reach, stop that task. Call
+`set_status(name, token, "blocked", detail="missing access: <what>")`, tell the owner exactly what is
+missing, and tell `pjm` so it lands in the manifest's Access table and Open blockers. **Never ask
+another agent to act on your behalf** to get around it: that hides the gap, pulls the other agent out
+of its lane, and stalls its own work. Carry on only with parts of your task that do not need the
+missing access. `/kickoff` checks the descriptor's `access:` map before launch, so a gap you hit
+mid-task usually means the map is missing an entry; say so when you report it.
+
 ### Model + effort tiers (set `/model` and `/effort` on adopt)
 
 Two dials. **Model** = capability/cost. **Effort** (`/effort low|medium|high|xhigh`) = how hard the model

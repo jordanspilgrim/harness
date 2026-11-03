@@ -40,5 +40,13 @@
 |----------|------|--------------|
 | pjm | Program Manager | coordination |
 
+## Access (from the descriptor's `access:`, checked at kickoff)
+| Role | Required (MCP / tools / paths) | Verified | Gap |
+|------|-------------------------------|----------|-----|
+| pjm | — | ✅ <YYYY-MM-DD> | none |
+
+> A role with a gap is not launched. A gap found mid-task goes here and under Open blockers; the
+> role sets `set_status(blocked)`. Never close a gap by relaying the work through another role.
+
 ## Open blockers / escalations
 - <none>
