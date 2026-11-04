@@ -136,6 +136,19 @@ echo "— role declared but nothing to resolve gates from —"
 run "role set, repo has no descriptor"             "NO DESCRIPTOR" -- "$NODESC"
 run "descriptor present → NO such warning"         '!NO DESCRIPTOR' -- "$RIGHT"
 
+echo "- unreadable role marker does not abort the hook -"
+# Under set -e an unreadable .claude/.dlb-role used to exit 1 out of the hook. Root ignores
+# file modes, so this case cannot be exercised as root.
+if [ "$(id -u)" -ne 0 ]; then
+  LOCKED=$(mkfixture locked-role - qa); chmod 000 "$LOCKED/.claude/.dlb-role"
+  run "unreadable .dlb-role -> exit 0, says why"   "could not be read" -- "$LOCKED"
+  run "unreadable .dlb-role -> no bootstrap"       '!AGENT ROLE BOOTSTRAP' -- "$LOCKED"
+  chmod 644 "$LOCKED/.claude/.dlb-role"
+  run "readable marker -> no such note"            '!could not be read' -- "$LOCKED"
+else
+  echo "SKIP  unreadable-marker cases (running as root)"
+fi
+
 echo "— unchanged behaviour —"
 run "unknown role token"                           "unknown role token" \
     DLB_ROLE=wizard -- "$RIGHT"

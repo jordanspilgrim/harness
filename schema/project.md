@@ -26,6 +26,7 @@ Format: a single fenced ```yaml block. Keep it short. Prose around it is for hum
 | `roster_profile` | `solo` \| `small` \| `full` | `small` | which roles kickoff stands up |
 | `roles` | list | (from profile) | optional explicit override of the role set |
 | `top_tier_model` | model id \| `none` | `none` | opt-in top tier for the high-judgment roles (`architect`, `ideator`, `bugfixer`) — see below |
+| `access` | map role token to {`mcp`, `connectors`, `tools`, `paths`} \| `none` | `none` | **access check**: `/kickoff` verifies each role's access before launching it, and a role with a gap is not launched. See below |
 
 ### `project_root` — the absolute path this repo lives at
 
@@ -73,6 +74,78 @@ gate stays on its default (`opus`). Note that `opus` itself now resolves to Clau
 carries elevated cyber safeguards — its card documents a `claude-opus-4-8` fallback for the rare
 security-sub-pass refusal. Verify the chosen model is actually selectable on your plan (`/model`).
 
+### `access`: what each role needs to reach
+
+A map from DLB role token to the MCP servers, claude.ai connectors, CLI tools, and filesystem paths
+that role must be able to use. `/kickoff` checks every entry before it launches the role (see its
+access-check step) and records the result in the manifest's Access table.
+
+Keys are DLB role tokens, the same tokens `.claude/.dlb-role` and `DLB_ROLE` take: `ideator`,
+`designer`, `architect`, `pjm`, `fe-dev`, `be-dev`, `reviewer`, `qa`, `uat`, `deployer`,
+`bugfixer`, `documenter`. `/kickoff` rejects any other key, and the hook warns about one. A builder
+is keyed as `fe-dev` or `be-dev`.
+
+```yaml
+access:
+  ideator:
+    mcp: [slack]                   # keys under mcpServers in ~/.claude.json or .mcp.json
+    connectors: [notion]           # claude.ai connectors; verified by /kickoff, not checkable offline
+    tools: [gh]                    # executables that must resolve on PATH
+    paths: [~/Documents/specs]     # must exist and be readable
+  be-dev:
+    tools: [uv, docker]
+    paths: [specs, "$DATA_DIR/fixtures"]
+```
+
+Entry keys:
+
+- `mcp`: MCP servers configured in Claude Code itself. The name is the key under `mcpServers` in
+  `~/.claude.json` (user scope, or the `projects` entry for this repo) or in `.mcp.json`.
+- `connectors`: claude.ai connectors (Notion, Gmail, Drive and the like). No local file records
+  them, so only `/kickoff`, which can see the session's tool list, verifies them.
+- `tools`: executables that must resolve on the session's PATH.
+- `paths`: files or directories that must exist and be readable. `~` and `$VAR` expand. A
+  relative path resolves against the project root, the directory that holds `.claude/project.md`,
+  wherever the session itself is rooted.
+
+**Why it exists.** Agents route around missing access instead of reporting it. In one fleet the
+product thread had no Notion connector, so it quietly asked another agent to read and write Notion
+on its behalf. The work got done, but through a relay nobody approved: the second agent acted
+outside its lane, its own task stalled, and the real gap (a connector the owner had to add) stayed
+invisible until someone read both transcripts. A declared access list turns that into a check that
+fails at launch, and the bootstrap rule (README, "Missing access") turns a mid-task discovery into a
+`set_status(blocked)` the owner can see.
+
+Rules:
+
+- A role with a failed check is **not launched**. The gap goes to the owner as an input item, the
+  same as a missing credential.
+- A role absent from the map is assumed to need nothing beyond the repo. `access: none` disables the
+  check entirely.
+- List only what the role cannot do its job without. Optional conveniences do not belong here.
+- Never satisfy one role's gap by routing its work through another role. Fix the access, or change
+  the plan with the owner.
+
+**Optional: re-check at every session start.** `/kickoff` checks once, at launch. To catch a gap
+that appears later (a tool uninstalled, a path unmounted, an MCP server removed from config), wire
+`bash ~/.claude/hooks/dlb-access-check.sh SessionStart` as a SessionStart hook with a 5s timeout. It
+resolves the role the same way `dlb-autoregister.sh` does and checks that role's entry locally:
+
+- tools on PATH. A tool found only in `/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin`, or
+  `~/.cargo/bin` is reported as "not on this session's PATH". A tool found nowhere is a gap, and the
+  report names the PATH searched.
+- paths exist and are readable.
+- each `mcp` name is a configured key in `~/.claude.json` (user scope or this project's entry) or
+  `.mcp.json`. It checks config keys, not connection state. A name that is not configured is a
+  one-line note, not a gap. `connectors` are skipped.
+
+It stays silent when there is nothing to report. A hard gap (a missing tool or path) injects the
+blocked rule. Notes alone (an unconfigured MCP name, a tool off PATH, a key that is not a role
+token, a second yaml fence) inject one line each without the rule. A descriptor it cannot parse,
+or any internal error, produces "access NOT verified: <reason>" rather than silence. Regression
+test: `bash ~/.claude/hooks/dlb-access-check.test.sh` (75 cases, each "fires" case paired with the
+benign neighbour it must stay silent on).
+
 ### `roster_profile` → default role set
 - **solo** — `builder`, `reviewer` (+ `evaluator` if the plan is gated). Sequential; minimal DLB. One-person POC.
 - **small** — `builder`(s), `reviewer`, `qa`. Light team.
@@ -99,6 +172,7 @@ acceptance: none               # web | cli | none  (+ a short how-to note)
 product_context: ""            # one line: what this is / who it's for
 sources_of_truth: none         # or a doc set + which paths gate which doc
 roster_profile: small          # solo | small | full
+access: none                   # or role token: {mcp, connectors, tools, paths}; kickoff blocks a role with a gap
 ```
 
 ## Example — BaselineOS (reproduces today's behavior)

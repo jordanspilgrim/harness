@@ -25,7 +25,15 @@ input=$(cat 2>/dev/null || true)   # drain SessionStart payload (unused)
 
 PROJ="${CLAUDE_PROJECT_DIR:-$PWD}"
 ROLE="${DLB_ROLE:-}"
-[ -z "$ROLE" ] && [ -f "$PROJ/.claude/.dlb-role" ] && ROLE="$(tr -d '[:space:]' < "$PROJ/.claude/.dlb-role")"
+ROLE_NOTE=""
+if [ -z "$ROLE" ] && [ -f "$PROJ/.claude/.dlb-role" ]; then
+  # An unreadable marker must not abort the hook under set -e; say so instead of no-opping.
+  if ROLE="$( { tr -d '[:space:]' < "$PROJ/.claude/.dlb-role"; } 2>/dev/null )"; then :; else
+    ROLE=""
+    ROLE_NOTE="DLB auto-register skipped: .claude/.dlb-role exists but could not be read, so this \
+session's role is unknown. Fix its permissions (chmod 644 .claude/.dlb-role) or set DLB_ROLE."
+  fi
+fi
 
 # ---------------------------------------------------------------------------
 # Root assertion. Runs BEFORE the "not a role thread → no-op" exit, because the
@@ -129,6 +137,9 @@ paths behave unexpectedly, that mismatch is why."
   fi
 fi
 
+if [ -n "$ROLE_NOTE" ]; then NOTE="${NOTE:+$NOTE
+
+}$ROLE_NOTE"; fi
 [ -z "$ROLE" ] && { [ -n "${NOTE:-}" ] && emit "" "$NOTE"; exit 0; }   # not a role thread → no-op
 
 # A role was declared but the repo has no descriptor at all. Either the repo was never
