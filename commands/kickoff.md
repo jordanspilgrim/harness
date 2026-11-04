@@ -83,10 +83,21 @@ drafts the *plan*, not the *descriptor*.
      descriptor sets **`top_tier_model`**, emit `/model <top_tier_model>` for `architect`, `ideator`,
      and `bugfixer` (not `reviewer` — it stays `opus`); every other role keeps its default. No
      `top_tier_model` ⇒ the README default column for all.
-   - **Access check** from the descriptor's `access:` map (skip if `none` or absent). For every
-     staffed role with an entry, verify each item from the machine the role will run on:
-     `mcp` → the server is listed and connected in `claude mcp list`; `tools` → `command -v <tool>`
-     resolves; `paths` → `test -r <path>` (after `~` expansion). A role with any failed item is
+   - **Access check** from the descriptor's `access:` map (skip if `none` or absent). Every key
+     must be a DLB role token (`ideator designer architect pjm fe-dev be-dev reviewer qa uat
+     deployer bugfixer documenter`; a `builder` is keyed as `fe-dev` or `be-dev`), and every entry
+     key must be one of `mcp`, `connectors`, `tools`, `paths`. Reject anything else: stop and fix
+     the descriptor with the user rather than guess which role a stray key meant. For every staffed
+     role with an entry, verify each item from the machine the role will run on:
+     - `mcp`: the server is listed and connected in `claude mcp list`.
+     - `connectors`: the claude.ai connector is enabled for the session the role will run in (its
+       tools appear in that session's tool list). Only you can check this; the SessionStart hook
+       skips connectors because no local file records them.
+     - `tools`: `command -v <tool>` resolves.
+     - `paths`: `test -r <path>` after `~` and `$VAR` expansion, with a relative path resolved
+       against the project root (the directory that holds `.claude/project.md`).
+
+     A role with any failed item is
      **not launched**: list the exact gap as an owner-input item (step 8) and hold its launch, and any
      launch that depends on it, until the owner fixes the access or changes the plan. Do not reassign
      its work to a role that happens to have the access. Record every role's result for the manifest.
@@ -145,8 +156,8 @@ drafts the *plan*, not the *descriptor*.
      the top of the block **and** tell the user to set it in the app's model selector, rather than
      assuming a slash command took.
 
-8. **Surface owner-input items** as a short numbered list (batched — no interview modals),
-   including every access gap from step 3 with the exact server, tool, or path to add.
+8. **Surface owner-input items** as a short numbered list (batched, no interview modals),
+   including every access gap from step 3 with the exact server, connector, tool, or path to add.
 
 ## Rooting — the failure this command exists to prevent
 

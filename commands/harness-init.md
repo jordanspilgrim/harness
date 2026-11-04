@@ -56,7 +56,7 @@ pieces. Do NOT copy role cards or commands into the repo.
    ```
    **Only if the descriptor declares `access:`** (not `none`), offer to add the optional access
    re-check to the same hooks array:
-   `{ "type": "command", "command": "bash ~/.claude/hooks/dlb-access-check.sh SessionStart" }`.
+   `{ "type": "command", "command": "bash ~/.claude/hooks/dlb-access-check.sh SessionStart", "timeout": 5 }`.
    **Only if `worktree_isolation: true`**, also add the PreToolUse/Bash branch-isolation hook:
    `{ "type": "command", "command": "bash ~/.claude/hooks/block-branch-switch.sh" }`.
 

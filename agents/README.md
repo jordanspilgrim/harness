@@ -141,7 +141,7 @@ in `_templates/manifest.md`.
 
 ### Missing access
 
-If your task needs an MCP server, tool, or path you cannot reach, stop that task. Call
+If your task needs an MCP server, claude.ai connector, tool, or path you cannot reach, stop that task. Call
 `set_status(name, token, "blocked", detail="missing access: <what>")`, tell the owner exactly what is
 missing, and tell `pjm` so it lands in the manifest's Access table and Open blockers. **Never ask
 another agent to act on your behalf** to get around it: that hides the gap, pulls the other agent out

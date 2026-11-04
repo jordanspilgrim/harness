@@ -45,7 +45,7 @@ One-time wiring (only if not already present) — add dlb-autoregister to the Se
 Optional: add dlb-access-check to the same hooks array to re-check a role's declared `access:` at
 every session start (see schema/project.md, "access"):
 
-      { "type": "command", "command": "bash ~/.claude/hooks/dlb-access-check.sh SessionStart # dlb-access-check" }
+      { "type": "command", "command": "bash ~/.claude/hooks/dlb-access-check.sh SessionStart # dlb-access-check", "timeout": 5 }
 
 Notes:
 - dlb-monitor-supervised.sh is launched via the Monitor tool (not a settings hook).
