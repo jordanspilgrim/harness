@@ -1,5 +1,6 @@
 .claude/.dlb-role
 .claude/worktrees/
+.worktrees/
 .DS_Store
 
 # secrets (added during public-prep)
