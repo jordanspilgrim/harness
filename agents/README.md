@@ -147,7 +147,10 @@ missing, and tell `pjm` so it lands in the manifest's Access table and Open bloc
 another agent to act on your behalf** to get around it: that hides the gap, pulls the other agent out
 of its lane, and stalls its own work. Carry on only with parts of your task that do not need the
 missing access. `/kickoff` checks the descriptor's `access:` map before launch, so a gap you hit
-mid-task usually means the map is missing an entry; say so when you report it.
+mid-task usually means the map is missing an entry; say so when you report it. A project can also
+wire the optional `dlb-access-check.sh` SessionStart hook, which re-runs your role's check every
+time your session starts and puts any gap in front of you before you begin (see
+`schema/project.md`, "access").
 
 ### Model + effort tiers (set `/model` and `/effort` on adopt)
 

@@ -54,6 +54,9 @@ pieces. Do NOT copy role cards or commands into the repo.
    { "hooks": { "SessionStart": [ { "matcher": "*", "hooks": [
      { "type": "command", "command": "bash ~/.claude/hooks/dlb-autoregister.sh SessionStart" } ] } ] } }
    ```
+   **Only if the descriptor declares `access:`** (not `none`), offer to add the optional access
+   re-check to the same hooks array:
+   `{ "type": "command", "command": "bash ~/.claude/hooks/dlb-access-check.sh SessionStart" }`.
    **Only if `worktree_isolation: true`**, also add the PreToolUse/Bash branch-isolation hook:
    `{ "type": "command", "command": "bash ~/.claude/hooks/block-branch-switch.sh" }`.
 

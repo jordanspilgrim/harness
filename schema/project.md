@@ -108,6 +108,16 @@ Rules:
 - Never satisfy one role's gap by routing its work through another role. Fix the access, or change
   the plan with the owner.
 
+**Optional: re-check at every session start.** `/kickoff` checks once, at launch. To catch a gap
+that appears later (a connector removed, a tool uninstalled, a path unmounted), wire
+`bash ~/.claude/hooks/dlb-access-check.sh SessionStart` as a SessionStart hook. It resolves the role
+the same way `dlb-autoregister.sh` does, checks that role's entry locally (tools on PATH, paths
+readable, MCP names in `~/.claude.json` or `.mcp.json`), and stays silent when everything resolves.
+A hard gap injects the blocked rule into the session. An MCP name it cannot see locally (claude.ai
+connectors are not visible offline) is reported as unverified, not as a gap. Regression test:
+`bash ~/.claude/hooks/dlb-access-check.test.sh` (27 cases, each "fires" case paired with the benign
+neighbour it must stay silent on).
+
 ### `roster_profile` → default role set
 - **solo** — `builder`, `reviewer` (+ `evaluator` if the plan is gated). Sequential; minimal DLB. One-person POC.
 - **small** — `builder`(s), `reviewer`, `qa`. Light team.
