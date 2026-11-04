@@ -126,8 +126,8 @@ drafts the *plan*, not the *descriptor*.
    or note the auto-register hook does this if `.claude/.dlb-role` is set); which memory/topic files
    to load; the role's **first task** with inputs + handoff target + the **gate it must pass**
    (`check_cmd`/`test_cmd`/DoD from the descriptor); the role's **declared access** with the
-   missing-access rule ("if you find you lack access you need, `set_status(blocked, detail=\"missing
-   access: <what>\")` and tell the owner; never ask another agent to act on your behalf"); and a
+   missing-access rule ("if you find you lack access you need, `set_status(name,
+   session_token, \"blocked\", detail=\"missing access: <what>\")` and tell the owner; never ask another agent to act on your behalf"); and a
    pointer to the manifest. Never launch a role whose access check failed in step 3.
 
    - **Terminal** — emit one fenced, ready-to-paste block per role. Prefix each with the `cd` to its
