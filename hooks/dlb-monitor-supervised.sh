@@ -54,12 +54,23 @@ release_lock() {
   fi
 }
 
-lock_owner_alive() {
-  # The pid is live AND still this script (guards against pid reuse).
-  local pid="$1"
-  [[ "$pid" =~ ^[0-9]+$ ]] || return 1
-  kill -0 "$pid" 2>/dev/null || return 1
-  ps -p "$pid" -o command= 2>/dev/null | grep -q "dlb-monitor-supervised"
+lock_owner_state() {
+  # Prints "same" when the pid is a live wrapper for this --name, "other" when
+  # it is a live wrapper for a different name (two names can share a lock path
+  # after sanitizing), and "dead" otherwise (gone, or pid reused by something
+  # else). Only "same" may be signalled.
+  local pid="$1" cmd
+  if [[ ! "$pid" =~ ^[0-9]+$ ]] || ! kill -0 "$pid" 2>/dev/null; then
+    echo dead; return
+  fi
+  cmd="$(ps -p "$pid" -o command= 2>/dev/null)"
+  if [[ "$cmd" != *dlb-monitor-supervised* ]]; then
+    echo dead
+  elif [[ " $cmd " == *" --name $NAME "* ]]; then
+    echo same
+  else
+    echo other
+  fi
 }
 
 if [[ "$NAME" != "?" ]]; then
@@ -79,11 +90,21 @@ if [[ "$NAME" != "?" ]]; then
       sleep 1
       owner="$(cat "$LOCK_DIR/pid" 2>/dev/null || true)"
     fi
-    if lock_owner_alive "$owner"; then
+    state="$(lock_owner_state "$owner")"
+    if [[ "$state" == "other" ]]; then
+      echo "[supervisor] dlb-monitor(${NAME}) lock ${LOCK_DIR} is held by pid ${owner}, a wrapper for another name; not taking it"
+      exit 1
+    fi
+    if [[ "$state" == "same" ]]; then
       echo "[supervisor] dlb-monitor(${NAME}) taking over from pid ${owner}"
       kill -TERM "$owner" 2>/dev/null
       # Give its traps up to 10s to stop the old monitor and release the lock.
-      for _ in $(seq 20); do kill -0 "$owner" 2>/dev/null || break; sleep 0.5; done
+      # (A counted while loop: stock macOS bash 3.2 setups may lack seq.)
+      waited=0
+      while (( waited < 20 )) && kill -0 "$owner" 2>/dev/null; do
+        sleep 0.5
+        waited=$(( waited + 1 ))
+      done
       if [[ "$(cat "$LOCK_DIR/pid" 2>/dev/null)" == "$owner" ]]; then rm -rf "$LOCK_DIR"; fi
       continue
     fi
