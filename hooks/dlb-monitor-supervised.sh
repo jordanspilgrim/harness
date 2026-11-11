@@ -17,6 +17,13 @@
 # dlb-mcp installed on disk. The wrapper respawns it at once, with no backoff, so
 # the monitor runs the new code without a session restart.
 #
+# REFUSED HEARTBEAT: dlb-monitor (dlb-mcp 0.7.4+) exits with code 77 when the
+# store keeps refusing its heartbeat, i.e. this monitor cannot prove it owns the
+# name (wrong session id, or the name was reclaimed elsewhere). Respawning would
+# fail the same way and hide the problem, so the wrapper stops, says why, and
+# exits 77 itself. Fix the identity (re-register in this session, or pass
+# --token / DLB_MONITOR_TOKEN), then relaunch.
+#
 # ONE PER NAME: the newest wrapper for a name wins. If a live wrapper already
 # holds the name, the new one sends it TERM and takes over; the old wrapper's
 # traps stop its monitor, release the lock, and exit 143. So a relaunch after a
@@ -31,6 +38,7 @@
 set -uo pipefail
 
 EXIT_VERSION_CHANGED=75
+EXIT_HEARTBEAT_REFUSED=77
 
 MON="$(command -v dlb-monitor || echo "$HOME/.local/bin/dlb-monitor")"
 NAME="?"
@@ -149,6 +157,10 @@ while true; do
     echo "[supervisor] dlb-monitor(${NAME}) exited code=${code} (dlb-mcp upgraded); respawning now on the new version"
     backoff=2
     continue
+  fi
+  if (( code == EXIT_HEARTBEAT_REFUSED )); then
+    echo "[supervisor] dlb-monitor(${NAME}) exited code=${code}: the store refused its heartbeat, so ${NAME} is NOT wakeable. Not respawning. Re-register ${NAME} in this session (or pass its session token), then relaunch the monitor."
+    exit "$EXIT_HEARTBEAT_REFUSED"
   fi
   echo "[supervisor] dlb-monitor(${NAME}) exited code=${code}; respawning in ${backoff}s"
   sleep "$backoff"
